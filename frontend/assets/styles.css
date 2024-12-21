@@ -1,0 +1,57 @@
+/* Add animations and sleek styles */
+body {
+  font-family: "Arial", sans-serif;
+  transition: all 0.3s ease-in-out;
+}
+
+.header {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 50px;
+}
+
+button {
+  border-radius: 5px;
+  padding: 10px;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #4caf50;
+  color: white;
+}
+
+/* Light Mode */
+body.light-mode {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* Dark Mode */
+body.dark-mode {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+.button-dark-mode {
+  background-color: #333333;
+  color: #ffffff;
+}
+
+.button-dark-mode:hover {
+  background-color: #555555;
+}
+
+.button-light-mode {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+.button-light-mode:hover {
+  background-color: #f0f0f0;
+}
