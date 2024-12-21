@@ -131,3 +131,10 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
 }
+
+import os
+
+# Add your Google API key here
+GOOGLE_API_KEY = os.getenv(
+    "AIzaSyBDMYAX4pPgl0XO9wUwIEatNI3EdgHmYeU"
+)  # Ensure it's securely stored in environment variables

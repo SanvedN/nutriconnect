@@ -1,42 +1,34 @@
-# app/models.py
 from django.db import models
 from django.contrib.auth.models import User
+import json
 
 
+# Profile Model
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    age = models.IntegerField()
-    height = models.FloatField()  # Height in cm
-    weight = models.FloatField()  # Weight in kg
+    age = models.PositiveIntegerField(default=0)
+    height = models.FloatField(default=0.0)
+    weight = models.FloatField(default=0.0)
+    target_weight = models.FloatField(default=0.0)
+    timeline = models.CharField(max_length=255, default="")
     activity_level = models.CharField(
-        max_length=50
-    )  # Activity level (e.g., Sedentary, Lightly Active, etc.)
-    daily_calories = models.FloatField(null=True, blank=True)
-    protein_target = models.FloatField(null=True, blank=True)
-    fat_target = models.FloatField(null=True, blank=True)
-    carbs_target = models.FloatField(null=True, blank=True)
+        max_length=50,
+        choices=[
+            ("sedentary", "Sedentary"),
+            ("light", "Light"),
+            ("moderate", "Moderate"),
+            ("active", "Active"),
+        ],
+        default="sedentary",
+    )
+    bmi = models.FloatField(default=0.0)
+    meal_preference = models.CharField(max_length=255, default="")
+    weight_log = models.JSONField(default=list)
+    daily_calories = models.FloatField(default=0.0)
+    protein_target = models.FloatField(default=0.0)
+    fat_target = models.FloatField(default=0.0)
+    carbs_target = models.FloatField(default=0.0)
+    progress_report = models.JSONField(default=dict)
 
     def __str__(self):
-        return f"{self.user.username} Profile"
-
-    def calculate_nutrition(self):
-        # Use Mifflin-St Jeor equation to calculate BMR
-        bmr = 10 * self.weight + 6.25 * self.height - 5 * self.age + 5  # For male
-        activity_multiplier = {
-            "sedentary": 1.2,
-            "light": 1.375,
-            "moderate": 1.55,
-            "active": 1.725,
-            "very_active": 1.9,
-        }
-        tdee = bmr * activity_multiplier.get(self.activity_level.lower(), 1.2)
-
-        # Store the daily calories
-        self.daily_calories = tdee
-
-        # Macronutrient targets (example: 40% carbs, 30% protein, 30% fat)
-        self.protein_target = tdee * 0.3 / 4  # 1g protein = 4 calories
-        self.fat_target = tdee * 0.3 / 9  # 1g fat = 9 calories
-        self.carbs_target = tdee * 0.4 / 4  # 1g carbs = 4 calories
-
-        self.save()
+        return self.user.username

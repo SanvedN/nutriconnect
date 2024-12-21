@@ -1,3 +1,4 @@
+from datetime import datetime
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -10,25 +11,19 @@ class LoginView(APIView):
     permission_classes = [AllowAny]  # Public access to the login view
 
     def post(self, request):
-        # Get the username and password from the request data
         username = request.data.get("username")
         password = request.data.get("password")
 
-        # Authenticate the user
         user = authenticate(username=username, password=password)
 
-        if user:
-            # If authentication is successful, generate JWT tokens
+        if user is not None:
             refresh = RefreshToken.for_user(user)
-            return Response(
-                {
-                    "access_token": str(refresh.access_token),
-                    "refresh_token": str(refresh),
-                }
-            )
-        else:
-            # If authentication fails, return an error message
-            return Response({"detail": "Invalid credentials"}, status=401)
+            access_token = str(refresh.access_token)
+            return Response({"access": access_token}, status=status.HTTP_200_OK)
+
+        return Response(
+            {"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
+        )
 
 
 from rest_framework.permissions import IsAuthenticated
@@ -111,3 +106,93 @@ class NutritionRecommendationView(APIView):
         serializer = NutritionRecommendationSerializer(profile)
 
         return Response(serializer.data)
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .models import Profile
+from .nutrition_ai import GeminiNutrition
+import os
+
+
+class NutritionPlanView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            profile = Profile.objects.get(user=request.user)
+
+            # Initialize Gemini with API key
+            gemini = GeminiNutrition(api_key="AIzaSyBDMYAX4pPgl0XO9wUwIEatNI3EdgHmYeU")
+
+            # Get nutrition plan and exercise routine
+            nutrition_plan = gemini.get_nutrition_plan(profile)
+
+            # Save nutrition and exercise plan to profile
+            profile.daily_calories = nutrition_plan.get(
+                "calories", profile.daily_calories
+            )
+            profile.protein_target = nutrition_plan.get(
+                "protein", profile.protein_target
+            )
+            profile.carbs_target = nutrition_plan.get("carbs", profile.carbs_target)
+            profile.fat_target = nutrition_plan.get("fat", profile.fat_target)
+            profile.save()
+
+            return Response(
+                {
+                    "nutrition_plan": nutrition_plan,
+                    "message": "Nutrition and exercise plan generated successfully.",
+                }
+            )
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
+
+class RecipeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            profile = Profile.objects.get(user=request.user)
+
+            # Initialize Gemini with API key
+            gemini = GeminiNutrition(api_key="AIzaSyBDMYAX4pPgl0XO9wUwIEatNI3EdgHmYeU")
+
+            # Generate a recipe based on the user's preferences
+            recipe = gemini.generate_recipe(profile)
+
+            return Response(
+                {"recipe": recipe, "message": "Recipe generated successfully."}
+            )
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
+
+class UpdateWeightView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        profile = Profile.objects.get(user=request.user)
+        new_weight = request.data.get("weight")
+
+        if not new_weight:
+            return Response({"error": "Weight value is required"}, status=400)
+
+        # Update weight in profile
+        profile.weight = float(new_weight)
+        profile.weight_log.append(
+            {"weight": new_weight, "timestamp": datetime.now().isoformat()}
+        )
+        profile.save()
+
+        return Response(
+            {
+                "message": "Weight updated successfully",
+                "current_weight": new_weight,
+                "progress": profile.weight_log,
+            }
+        )
