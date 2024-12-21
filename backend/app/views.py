@@ -196,3 +196,65 @@ class UpdateWeightView(APIView):
                 "progress": profile.weight_log,
             }
         )
+
+
+# app/views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+from .models import Profile
+from .nutrition_ai import GeminiNutrition
+import os
+
+
+class WeeklyPlanView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            profile = Profile.objects.get(user=request.user)
+            gemini = GeminiNutrition(api_key="AIzaSyBDMYAX4pPgl0XO9wUwIEatNI3EdgHmYeU")
+
+            # Generate weekly plans
+            plans = gemini.generate_weekly_plans(profile)
+
+            # Update profile with new plans
+            profile.weekly_nutrition_plan = plans.get("nutrition_plan", {})
+            profile.weekly_workout_plan = plans.get("workout_plan", {})
+            profile.save()
+
+            return Response(
+                {
+                    "weekly_nutrition_plan": profile.weekly_nutrition_plan,
+                    "weekly_workout_plan": profile.weekly_workout_plan,
+                    "message": "Weekly plans generated successfully",
+                }
+            )
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        """Update specific parts of the weekly plan"""
+        try:
+            profile = Profile.objects.get(user=request.user)
+
+            if "nutrition_plan" in request.data:
+                profile.weekly_nutrition_plan.update(request.data["nutrition_plan"])
+
+            if "workout_plan" in request.data:
+                profile.weekly_workout_plan.update(request.data["workout_plan"])
+
+            profile.save()
+
+            return Response(
+                {
+                    "message": "Weekly plans updated successfully",
+                    "weekly_nutrition_plan": profile.weekly_nutrition_plan,
+                    "weekly_workout_plan": profile.weekly_workout_plan,
+                }
+            )
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

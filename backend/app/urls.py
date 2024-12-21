@@ -8,6 +8,7 @@ from .views import (
     NutritionPlanView,
     RecipeView,
     UpdateWeightView,
+    WeeklyPlanView,
 )
 
 urlpatterns = [
@@ -25,4 +26,5 @@ urlpatterns = [
     path(
         "protected/", ProtectedView.as_view(), name="protected"
     ),  # Protected page for testing auth
+    path("weekly-plan/", WeeklyPlanView.as_view(), name="weekly_plan"),
 ]
