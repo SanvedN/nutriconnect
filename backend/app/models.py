@@ -1,36 +1,42 @@
+# app/models.py
 from django.db import models
 from django.contrib.auth.models import User
 
-# Define activity level choices
-ACTIVITY_LEVEL_CHOICES = [
-    ("sedentary", "Sedentary (little to no exercise)"),
-    ("light", "Lightly active (light exercise/sports 1-3 days/week)"),
-    ("moderate", "Moderately active (moderate exercise/sports 3-5 days/week)"),
-    ("active", "Very active (hard exercise/sports 6-7 days a week)"),
-]
 
-
-# Profile model to store additional user information
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-
-    # Additional fields for nutrition
-    age = models.PositiveIntegerField(default=18)
-    height = models.DecimalField(max_digits=5, decimal_places=2, default=150)  # in cm
-    weight = models.DecimalField(max_digits=5, decimal_places=2, default=60)  # in kg
-    bmi = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True
-    )  # BMI value
+    age = models.IntegerField()
+    height = models.FloatField()  # Height in cm
+    weight = models.FloatField()  # Weight in kg
     activity_level = models.CharField(
-        max_length=10, choices=ACTIVITY_LEVEL_CHOICES, default="sedentary"
-    )
-
-    def calculate_bmi(self):
-        # Formula to calculate BMI: weight(kg) / height(m)^2
-        height_in_meters = self.height / 100  # convert cm to meters
-        bmi_value = self.weight / (height_in_meters**2)
-        self.bmi = round(bmi_value, 2)
-        self.save()
+        max_length=50
+    )  # Activity level (e.g., Sedentary, Lightly Active, etc.)
+    daily_calories = models.FloatField(null=True, blank=True)
+    protein_target = models.FloatField(null=True, blank=True)
+    fat_target = models.FloatField(null=True, blank=True)
+    carbs_target = models.FloatField(null=True, blank=True)
 
     def __str__(self):
-        return f"Profile of {self.user.username}"
+        return f"{self.user.username} Profile"
+
+    def calculate_nutrition(self):
+        # Use Mifflin-St Jeor equation to calculate BMR
+        bmr = 10 * self.weight + 6.25 * self.height - 5 * self.age + 5  # For male
+        activity_multiplier = {
+            "sedentary": 1.2,
+            "light": 1.375,
+            "moderate": 1.55,
+            "active": 1.725,
+            "very_active": 1.9,
+        }
+        tdee = bmr * activity_multiplier.get(self.activity_level.lower(), 1.2)
+
+        # Store the daily calories
+        self.daily_calories = tdee
+
+        # Macronutrient targets (example: 40% carbs, 30% protein, 30% fat)
+        self.protein_target = tdee * 0.3 / 4  # 1g protein = 4 calories
+        self.fat_target = tdee * 0.3 / 9  # 1g fat = 9 calories
+        self.carbs_target = tdee * 0.4 / 4  # 1g carbs = 4 calories
+
+        self.save()

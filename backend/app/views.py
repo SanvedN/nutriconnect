@@ -81,3 +81,33 @@ class ProfileView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .models import Profile
+from .serializers import NutritionRecommendationSerializer
+from .utils.nutrition import (
+    calculate_nutrition,
+)  # Assuming you have this function defined
+
+
+class NutritionRecommendationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profile = Profile.objects.get(user=request.user)
+        nutrition_data = calculate_nutrition(profile)
+
+        # Update the profile with the nutrition data
+        profile.daily_calories = nutrition_data["daily_calories"]
+        profile.protein_target = nutrition_data["protein_target"]
+        profile.fat_target = nutrition_data["fat_target"]
+        profile.carbs_target = nutrition_data["carbs_target"]
+        profile.save()
+
+        # Serialize the response
+        serializer = NutritionRecommendationSerializer(profile)
+
+        return Response(serializer.data)

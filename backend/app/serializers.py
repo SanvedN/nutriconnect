@@ -1,6 +1,7 @@
 # serializers.py
 from django.contrib.auth.models import User
 from rest_framework import serializers
+from .models import Profile
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -18,11 +19,26 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
-from rest_framework import serializers
-from .models import Profile
-
-
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ["age", "height", "weight", "bmi", "activity_level"]
+        fields = [
+            "user",
+            "age",
+            "height",
+            "weight",
+            "activity_level",
+            "daily_calories",
+            "protein_target",
+            "fat_target",
+            "carbs_target",
+        ]
+
+
+from rest_framework import serializers
+
+
+class NutritionRecommendationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ["daily_calories", "protein_target", "fat_target", "carbs_target"]
