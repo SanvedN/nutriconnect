@@ -25,4 +25,4 @@ from .models import Profile
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ["bio", "phone_number"]  # Add other fields you want to expose
+        fields = ["age", "height", "weight", "bmi", "activity_level"]
