@@ -1,4 +1,5 @@
 from datetime import datetime
+from jsonschema import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -71,11 +72,12 @@ class ProfileView(APIView):
     def put(self, request, format=None):
         profile = request.user.profile
         serializer = ProfileSerializer(profile, data=request.data, partial=True)
-
-        if serializer.is_valid():
+        try:
+            serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=200)
+        except ValidationError as e:
+            return Response({"error": e.detail}, status=400)
 
 
 from rest_framework.views import APIView

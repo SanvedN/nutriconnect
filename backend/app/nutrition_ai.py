@@ -12,55 +12,43 @@ class GeminiNutrition:
     def generate_weekly_plans(self, profile) -> dict:
         """Generate comprehensive weekly nutrition and workout plans"""
         prompt = f"""
-        As an expert nutritionist and fitness trainer, create a comprehensive weekly nutrition and workout plan for:
-        
-        User Profile:
+        Create a comprehensive weekly plan for the following user:
+
+        User Details:
         - Gender: {profile.get_gender_display()}
         - Age: {profile.age}
         - Height: {profile.height} cm
-        - Current Weight: {profile.weight} kg
+        - Weight: {profile.weight} kg
         - Target Weight: {profile.target_weight} kg
-        - Timeline: {profile.timeline}
         - Activity Level: {profile.activity_level}
-        - BMI: {profile.bmi}
         - Meal Preferences: {profile.meal_preference}
-        - Daily Calories: {profile.daily_calories}
-        - Protein Target: {profile.protein_target}g
-        - Carbs Target: {profile.carbs_target}g
-        - Fat Target: {profile.fat_target}g
+        - Daily Calories: {profile.daily_calories} kcal
+        - Macronutrient Targets: Protein {profile.protein_target}g, Carbs {profile.carbs_target}g, Fat {profile.fat_target}g
 
-        Generate a structured response with:
-        1. A 7-day meal plan with specific meals and portions
-        2. A 7-day workout plan with specific exercises, sets, reps, and rest periods
-        3. Daily nutritional breakdown
-        4. Weekly progress targets
-
-        Format as JSON with the following structure:
+        Generate a JSON response structured as:
         {{
             "nutrition_plan": {{
                 "monday": {{
-                    "breakfast": {{"meal": "", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}},
-                    "lunch": {{"meal": "", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}},
-                    "dinner": {{"meal": "", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}},
-                    "snacks": [{{"meal": "", "calories": 0, "protein": 0, "carbs": 0, "fat": 0}}]
+                    "breakfast": {{"meal": "Sample Meal", "calories": 300, "protein": 10, "carbs": 40, "fat": 10}},
+                    "lunch": {{"meal": "Sample Meal", "calories": 500, "protein": 30, "carbs": 50, "fat": 15}},
+                    "dinner": {{"meal": "Sample Meal", "calories": 400, "protein": 25, "carbs": 45, "fat": 10}},
+                    "snacks": [{{"meal": "Snack", "calories": 150, "protein": 5, "carbs": 20, "fat": 5}}]
                 }},
-                // ... other days
+                // Repeat for all days
             }},
             "workout_plan": {{
                 "monday": {{
-                    "focus": "",
+                    "focus": "Upper Body",
                     "exercises": [
-                        {{
-                            "name": "",
-                            "sets": 0,
-                            "reps": 0,
-                            "rest": ""
-                        }}
+                        {{"name": "Push-ups", "sets": 3, "reps": 15, "rest": "1 min"}},
+                        {{"name": "Pull-ups", "sets": 3, "reps": 10, "rest": "2 min"}}
                     ]
                 }},
-                // ... other days
+                // Repeat for all days
             }}
         }}
+
+        Ensure that the meal and workout plans are distinct and follow the structure provided.
         """
 
         response = self.model.generate_content(prompt)
