@@ -7,7 +7,7 @@ from datetime import datetime
 class GeminiNutrition:
     def __init__(self, api_key):
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel("gemini-pro")
+        self.model = genai.GenerativeModel("gemini-1.5-pro")
 
     def generate_weekly_plans(self, profile) -> dict:
         """Generate comprehensive weekly nutrition and workout plans"""

@@ -144,8 +144,8 @@ def test_all_functionality():
     email = "testuser@example.com"
     password = "testpassword123"
 
-    # print("\n1. Testing log...")
-    # register_user(username, email, password)
+    print("\n1. Testing log...")
+    register_user(username, email, password)
 
     print("\n2. Testing Login...")
     token = get_jwt_token(username, password)
