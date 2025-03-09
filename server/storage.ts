@@ -1,222 +1,251 @@
+import { MongoClient, ObjectId } from 'mongodb';
 import { InsertUser, User, DietPlan, WorkoutPlan, WeightLog, Post, Comment, Like } from "@shared/schema";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import MongoStore from 'connect-mongo';
 
-const MemoryStore = createMemoryStore(session);
+if (!process.env.MONGODB_URI) {
+  throw new Error('Please define the MONGODB_URI environment variable');
+}
+
+const client = new MongoClient(process.env.MONGODB_URI);
+const database = client.db('fitness-app');
 
 export interface IStorage {
   // User operations
-  getUser(id: number): Promise<User | undefined>;
+  getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUser(id: number, data: Partial<User>): Promise<User>;
-  
+  updateUser(id: string, data: Partial<User>): Promise<User>;
+  updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
+
+  // Password reset operations
+  saveResetToken(userId: string, token: string, expiry: Date): Promise<void>;
+  getResetToken(token: string): Promise<{ userId: string; expiry: Date } | undefined>;
+  deleteResetToken(token: string): Promise<void>;
+
   // Diet plan operations
-  createDietPlan(userId: number, plan: Omit<DietPlan, "id" | "userId">): Promise<DietPlan>;
-  getDietPlans(userId: number): Promise<DietPlan[]>;
-  updateDietPlan(id: number, data: Partial<DietPlan>): Promise<DietPlan>;
-  deleteDietPlan(id: number): Promise<void>;
+  createDietPlan(userId: string, plan: Omit<DietPlan, "id" | "userId">): Promise<DietPlan>;
+  getDietPlans(userId: string): Promise<DietPlan[]>;
+  updateDietPlan(id: string, data: Partial<DietPlan>): Promise<DietPlan>;
+  deleteDietPlan(id: string): Promise<void>;
 
   // Workout plan operations  
-  createWorkoutPlan(userId: number, plan: Omit<WorkoutPlan, "id" | "userId">): Promise<WorkoutPlan>;
-  getWorkoutPlans(userId: number): Promise<WorkoutPlan[]>;
-  updateWorkoutPlan(id: number, data: Partial<WorkoutPlan>): Promise<WorkoutPlan>;
-  deleteWorkoutPlan(id: number): Promise<void>;
+  createWorkoutPlan(userId: string, plan: Omit<WorkoutPlan, "id" | "userId">): Promise<WorkoutPlan>;
+  getWorkoutPlans(userId: string): Promise<WorkoutPlan[]>;
+  updateWorkoutPlan(id: string, data: Partial<WorkoutPlan>): Promise<WorkoutPlan>;
+  deleteWorkoutPlan(id: string): Promise<void>;
 
   // Weight log operations
-  createWeightLog(userId: number, log: Omit<WeightLog, "id" | "userId">): Promise<WeightLog>;
-  getWeightLogs(userId: number): Promise<WeightLog[]>;
+  createWeightLog(userId: string, log: Omit<WeightLog, "id" | "userId">): Promise<WeightLog>;
+  getWeightLogs(userId: string): Promise<WeightLog[]>;
 
   // Community operations
-  createPost(userId: number, post: Omit<Post, "id" | "userId" | "createdAt">): Promise<Post>;
+  createPost(userId: string, post: Omit<Post, "id" | "userId" | "createdAt">): Promise<Post>;
   getPosts(): Promise<Post[]>;
-  deletePost(id: number): Promise<void>;
+  deletePost(id: string): Promise<void>;
   
-  createComment(userId: number, postId: number, comment: Omit<Comment, "id" | "userId" | "postId" | "createdAt">): Promise<Comment>;
-  getComments(postId: number): Promise<Comment[]>;
-  deleteComment(id: number): Promise<void>;
+  createComment(userId: string, postId: string, comment: Omit<Comment, "id" | "userId" | "postId" | "createdAt">): Promise<Comment>;
+  getComments(postId: string): Promise<Comment[]>;
+  deleteComment(id: string): Promise<void>;
 
-  createLike(userId: number, postId: number): Promise<Like>;
-  deleteLike(userId: number, postId: number): Promise<void>;
-  getLikes(postId: number): Promise<Like[]>;
+  createLike(userId: string, postId: string): Promise<Like>;
+  deleteLike(userId: string, postId: string): Promise<void>;
+  getLikes(postId: string): Promise<Like[]>;
 
   sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private dietPlans: Map<number, DietPlan>;
-  private workoutPlans: Map<number, WorkoutPlan>;
-  private weightLogs: Map<number, WeightLog>;
-  private posts: Map<number, Post>;
-  private comments: Map<number, Comment>;
-  private likes: Map<number, Like>;
+export class MongoStorage implements IStorage {
+  private users;
+  private dietPlans;
+  private workoutPlans;
+  private weightLogs;
+  private posts;
+  private comments;
+  private likes;
   sessionStore: session.Store;
-  
-  private userId: number = 1;
-  private dietPlanId: number = 1;
-  private workoutPlanId: number = 1;
-  private weightLogId: number = 1;
-  private postId: number = 1;
-  private commentId: number = 1;
-  private likeId: number = 1;
 
   constructor() {
-    this.users = new Map();
-    this.dietPlans = new Map();
-    this.workoutPlans = new Map();
-    this.weightLogs = new Map();
-    this.posts = new Map();
-    this.comments = new Map();
-    this.likes = new Map();
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+    this.users = database.collection('users');
+    this.dietPlans = database.collection('dietPlans');
+    this.workoutPlans = database.collection('workoutPlans');
+    this.weightLogs = database.collection('weightLogs');
+    this.posts = database.collection('posts');
+    this.comments = database.collection('comments');
+    this.likes = database.collection('likes');
+
+    this.sessionStore = MongoStore.create({
+      client: client,
+      dbName: 'fitness-app',
+      ttl: 14 * 24 * 60 * 60 // 14 days
     });
   }
 
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+  async getUser(id: string): Promise<User | undefined> {
+    const user = await this.users.findOne({ _id: new ObjectId(id) });
+    return user ? this.transformUser(user) : undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const user = await this.users.findOne({ username });
+    return user ? this.transformUser(user) : undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const user = await this.users.findOne({ email });
+    return user ? this.transformUser(user) : undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userId++;
-    const user = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    const result = await this.users.insertOne(insertUser);
+    return this.transformUser({ _id: result.insertedId, ...insertUser });
   }
 
-  async updateUser(id: number, data: Partial<User>): Promise<User> {
-    const user = this.users.get(id);
-    if (!user) throw new Error("User not found");
-    const updated = { ...user, ...data };
-    this.users.set(id, updated);
-    return updated;
+  async updateUser(id: string, data: Partial<User>): Promise<User> {
+    const result = await this.users.findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: data },
+      { returnDocument: 'after' }
+    );
+    return this.transformUser(result.value);
   }
 
-  async createDietPlan(userId: number, plan: Omit<DietPlan, "id" | "userId">): Promise<DietPlan> {
-    const id = this.dietPlanId++;
-    const dietPlan = { ...plan, id, userId };
-    this.dietPlans.set(id, dietPlan);
-    return dietPlan;
+  async updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
+    await this.users.updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: { password: hashedPassword } }
+    );
   }
 
-  async getDietPlans(userId: number): Promise<DietPlan[]> {
-    return Array.from(this.dietPlans.values()).filter(plan => plan.userId === userId);
+  async saveResetToken(userId: string, token: string, expiry: Date): Promise<void> {
+    await this.users.updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: { resetToken: token, resetTokenExpiry: expiry } }
+    );
   }
 
-  async updateDietPlan(id: number, data: Partial<DietPlan>): Promise<DietPlan> {
-    const plan = this.dietPlans.get(id);
-    if (!plan) throw new Error("Diet plan not found");
-    const updated = { ...plan, ...data };
-    this.dietPlans.set(id, updated);
-    return updated;
+  async getResetToken(token: string): Promise<{ userId: string; expiry: Date } | undefined> {
+    const user = await this.users.findOne({ resetToken: token });
+    if (!user || !user.resetTokenExpiry) return undefined;
+    return {
+      userId: user._id.toString(),
+      expiry: new Date(user.resetTokenExpiry)
+    };
   }
 
-  async deleteDietPlan(id: number): Promise<void> {
-    this.dietPlans.delete(id);
+  async deleteResetToken(token: string): Promise<void> {
+    await this.users.updateOne(
+      { resetToken: token },
+      { $unset: { resetToken: 1, resetTokenExpiry: 1 } }
+    );
   }
 
-  async createWorkoutPlan(userId: number, plan: Omit<WorkoutPlan, "id" | "userId">): Promise<WorkoutPlan> {
-    const id = this.workoutPlanId++;
-    const workoutPlan = { ...plan, id, userId };
-    this.workoutPlans.set(id, workoutPlan);
-    return workoutPlan;
+  private transformUser(dbUser: any): User {
+    const { _id, ...rest } = dbUser;
+    return { id: _id.toString(), ...rest };
   }
 
-  async getWorkoutPlans(userId: number): Promise<WorkoutPlan[]> {
-    return Array.from(this.workoutPlans.values()).filter(plan => plan.userId === userId);
+  async createDietPlan(userId: string, plan: Omit<DietPlan, "id" | "userId">): Promise<DietPlan> {
+    const result = await this.dietPlans.insertOne({...plan, userId});
+    return {...plan, userId, id: result.insertedId.toString()};
   }
 
-  async updateWorkoutPlan(id: number, data: Partial<WorkoutPlan>): Promise<WorkoutPlan> {
-    const plan = this.workoutPlans.get(id);
-    if (!plan) throw new Error("Workout plan not found");
-    const updated = { ...plan, ...data };
-    this.workoutPlans.set(id, updated);
-    return updated;
+  async getDietPlans(userId: string): Promise<DietPlan[]> {
+    const plans = await this.dietPlans.find({userId}).toArray();
+    return plans.map(p => ({...p, id: p._id.toString()}));
   }
 
-  async deleteWorkoutPlan(id: number): Promise<void> {
-    this.workoutPlans.delete(id);
+  async updateDietPlan(id: string, data: Partial<DietPlan>): Promise<DietPlan> {
+    const result = await this.dietPlans.findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: data },
+      { returnDocument: 'after' }
+    );
+    return {...result.value, id: result.value._id.toString()};
   }
 
-  async createWeightLog(userId: number, log: Omit<WeightLog, "id" | "userId">): Promise<WeightLog> {
-    const id = this.weightLogId++;
-    const weightLog = { ...log, id, userId };
-    this.weightLogs.set(id, weightLog);
-    return weightLog;
+  async deleteDietPlan(id: string): Promise<void> {
+    await this.dietPlans.deleteOne({ _id: new ObjectId(id) });
   }
 
-  async getWeightLogs(userId: number): Promise<WeightLog[]> {
-    return Array.from(this.weightLogs.values())
-      .filter(log => log.userId === userId)
-      .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  async createWorkoutPlan(userId: string, plan: Omit<WorkoutPlan, "id" | "userId">): Promise<WorkoutPlan> {
+    const result = await this.workoutPlans.insertOne({...plan, userId});
+    return {...plan, userId, id: result.insertedId.toString()};
   }
 
-  async createPost(userId: number, post: Omit<Post, "id" | "userId" | "createdAt">): Promise<Post> {
-    const id = this.postId++;
-    const newPost = { ...post, id, userId, createdAt: new Date() };
-    this.posts.set(id, newPost);
-    return newPost;
+  async getWorkoutPlans(userId: string): Promise<WorkoutPlan[]> {
+    const plans = await this.workoutPlans.find({userId}).toArray();
+    return plans.map(p => ({...p, id: p._id.toString()}));
+  }
+
+  async updateWorkoutPlan(id: string, data: Partial<WorkoutPlan>): Promise<WorkoutPlan> {
+    const result = await this.workoutPlans.findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: data },
+      { returnDocument: 'after' }
+    );
+    return {...result.value, id: result.value._id.toString()};
+  }
+
+  async deleteWorkoutPlan(id: string): Promise<void> {
+    await this.workoutPlans.deleteOne({ _id: new ObjectId(id) });
+  }
+
+  async createWeightLog(userId: string, log: Omit<WeightLog, "id" | "userId">): Promise<WeightLog> {
+    const result = await this.weightLogs.insertOne({...log, userId});
+    return {...log, userId, id: result.insertedId.toString()};
+  }
+
+  async getWeightLogs(userId: string): Promise<WeightLog[]> {
+    const logs = await this.weightLogs.find({userId}).toArray();
+    return logs.map(l => ({...l, id: l._id.toString()})).sort((a, b) => b.date.getTime() - a.date.getTime());
+  }
+
+  async createPost(userId: string, post: Omit<Post, "id" | "userId" | "createdAt">): Promise<Post> {
+    const result = await this.posts.insertOne({...post, userId, createdAt: new Date()});
+    return {...post, userId, id: result.insertedId.toString(), createdAt: new Date()};
   }
 
   async getPosts(): Promise<Post[]> {
-    return Array.from(this.posts.values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const posts = await this.posts.find({}).toArray();
+    return posts.map(p => ({...p, id: p._id.toString()})).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
-  async deletePost(id: number): Promise<void> {
-    this.posts.delete(id);
-    // Delete associated comments and likes
-    Array.from(this.comments.entries())
-      .filter(([_, comment]) => comment.postId === id)
-      .forEach(([commentId]) => this.comments.delete(commentId));
-    
-    Array.from(this.likes.entries())
-      .filter(([_, like]) => like.postId === id)
-      .forEach(([likeId]) => this.likes.delete(likeId));
+  async deletePost(id: string): Promise<void> {
+    await this.posts.deleteOne({ _id: new ObjectId(id) });
+    await this.comments.deleteMany({ postId: id });
+    await this.likes.deleteMany({ postId: id });
   }
 
-  async createComment(userId: number, postId: number, comment: Omit<Comment, "id" | "userId" | "postId" | "createdAt">): Promise<Comment> {
-    const id = this.commentId++;
-    const newComment = { ...comment, id, userId, postId, createdAt: new Date() };
-    this.comments.set(id, newComment);
-    return newComment;
+  async createComment(userId: string, postId: string, comment: Omit<Comment, "id" | "userId" | "postId" | "createdAt">): Promise<Comment> {
+    const result = await this.comments.insertOne({...comment, userId, postId, createdAt: new Date()});
+    return {...comment, userId, postId, id: result.insertedId.toString(), createdAt: new Date()};
   }
 
-  async getComments(postId: number): Promise<Comment[]> {
-    return Array.from(this.comments.values())
-      .filter(comment => comment.postId === postId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  async getComments(postId: string): Promise<Comment[]> {
+    const comments = await this.comments.find({postId}).toArray();
+    return comments.map(c => ({...c, id: c._id.toString()})).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
-  async deleteComment(id: number): Promise<void> {
-    this.comments.delete(id);
+  async deleteComment(id: string): Promise<void> {
+    await this.comments.deleteOne({ _id: new ObjectId(id) });
   }
 
-  async createLike(userId: number, postId: number): Promise<Like> {
-    const id = this.likeId++;
-    const like = { id, userId, postId, createdAt: new Date() };
-    this.likes.set(id, like);
-    return like;
+  async createLike(userId: string, postId: string): Promise<Like> {
+    const result = await this.likes.insertOne({userId, postId, createdAt: new Date()});
+    return {userId, postId, id: result.insertedId.toString(), createdAt: new Date()};
   }
 
-  async deleteLike(userId: number, postId: number): Promise<void> {
-    const like = Array.from(this.likes.values()).find(
-      like => like.userId === userId && like.postId === postId
-    );
-    if (like) {
-      this.likes.delete(like.id);
-    }
+  async deleteLike(userId: string, postId: string): Promise<void> {
+    await this.likes.deleteOne({ userId, postId });
   }
 
-  async getLikes(postId: number): Promise<Like[]> {
-    return Array.from(this.likes.values()).filter(like => like.postId === postId);
+  async getLikes(postId: string): Promise<Like[]> {
+    const likes = await this.likes.find({postId}).toArray();
+    return likes.map(l => ({...l, id: l._id.toString()}));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new MongoStorage();

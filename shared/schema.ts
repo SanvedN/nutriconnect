@@ -5,6 +5,7 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name"),
   age: integer("age"),
@@ -14,6 +15,8 @@ export const users = pgTable("users", {
   fitnessGoals: text("fitness_goals"),
   dietaryPreferences: text("dietary_preferences"),
   targetWeight: integer("target_weight"),
+  resetToken: text("reset_token"),
+  resetTokenExpiry: timestamp("reset_token_expiry"),
 });
 
 export const dietPlans = pgTable("diet_plans", {
@@ -65,6 +68,7 @@ export const likes = pgTable("likes", {
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
+  email: true,
   password: true,
   name: true,
   age: true,
@@ -74,6 +78,8 @@ export const insertUserSchema = createInsertSchema(users).pick({
   fitnessGoals: true,
   dietaryPreferences: true,
   targetWeight: true,
+  resetToken: true,
+  resetTokenExpiry: true,
 });
 
 export const insertDietPlanSchema = createInsertSchema(dietPlans).pick({
