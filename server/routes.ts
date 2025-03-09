@@ -257,6 +257,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(plans);
   });
 
+  app.delete("/api/workout/plans/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteWorkoutPlan(req.params.id);
+      res.sendStatus(200);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.patch("/api/workout/plans/:id/activate", requireAuth, async (req, res) => {
+    try {
+      // First deactivate any currently active plan
+      await storage.deactivateAllWorkoutPlans(req.user!.id);
+
+      // Then activate the selected plan
+      const plan = await storage.activateWorkoutPlan(req.params.id);
+      res.json(plan);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
   // Weight log routes
   app.post("/api/weight/logs", requireAuth, async (req, res) => {
     try {
@@ -274,7 +296,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/weight/logs", requireAuth, async (req, res) => {
-    const logs = await storage.getWeightLogs(req.user!.id);
+    let logs = await storage.getWeightLogs(req.user!.id);
+    // Sort logs by date, newest first
+    logs = logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     res.json(logs);
   });
 
