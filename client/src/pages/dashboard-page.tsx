@@ -38,15 +38,17 @@ export default function DashboardPage() {
     );
   }
 
-  const weightData = weightLogs?.map((log) => ({
-    date: format(new Date(log.date), "MMM d"),
-    weight: log.weight,
-  }));
+  const weightData = weightLogs
+    ?.map((log) => ({
+      date: format(new Date(log.date), "MMM d"),
+      weight: log.weight,
+    }))
+    .reverse();
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav />
-      
+
       <main className="pl-64 p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -72,12 +74,14 @@ export default function DashboardPage() {
             />
             <StatsCard
               title="Active Diet Plan"
-              value={dietPlans?.find(plan => plan.isActive)?.name || "None"}
+              value={dietPlans?.find((plan) => plan.isActive)?.name || "None"}
               description="Current meal plan"
             />
             <StatsCard
               title="Active Workout Plan"
-              value={workoutPlans?.find(plan => plan.isActive)?.name || "None"}
+              value={
+                workoutPlans?.find((plan) => plan.isActive)?.name || "None"
+              }
               description="Current exercise routine"
             />
           </div>
@@ -130,11 +134,14 @@ export default function DashboardPage() {
                         {i === 0
                           ? "Updated weight log"
                           : i === 1
-                          ? "Generated new diet plan"
-                          : "Created workout routine"}
+                            ? "Generated new diet plan"
+                            : "Created workout routine"}
                       </p>
                       <p className="text-sm text-gray-500">
-                        {format(new Date().setDate(new Date().getDate() - i), "PPP")}
+                        {format(
+                          new Date().setDate(new Date().getDate() - i),
+                          "PPP",
+                        )}
                       </p>
                     </div>
                   </div>
