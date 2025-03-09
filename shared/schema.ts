@@ -27,6 +27,7 @@ export const dietPlans = pgTable("diet_plans", {
   name: text("name").notNull(),
   plan: json("plan").notNull(),
   isAiGenerated: boolean("is_ai_generated").notNull(),
+  isActive: boolean("is_active").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -36,6 +37,7 @@ export const workoutPlans = pgTable("workout_plans", {
   name: text("name").notNull(),
   plan: json("plan").notNull(),
   isAiGenerated: boolean("is_ai_generated").notNull(),
+  isActive: boolean("is_active").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

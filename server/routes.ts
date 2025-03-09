@@ -55,7 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Remove unwanted formatting (Markdown code blocks)
       recipeText = recipeText.replace(/^```json\n?|```$/g, "").trim();
       recipeText = recipeText.replace(/^```\n?|```$/g, "").trim();
-      
+
       // Add extra safety for malformed JSON
       // Sometimes AI might include explanatory text before or after the JSON
       const jsonMatch = recipeText.match(/(\{.*\})/s);
@@ -69,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recipe = JSON.parse(recipeText);
       } catch (jsonError) {
         console.error("JSON Parsing Error:", jsonError, "Text:", recipeText);
-        
+
         // Fallback to a structured response if parsing fails
         recipe = {
           name: "Simple Recipe (AI response parsing failed)",
@@ -130,20 +130,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      
+
       let planText = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (!planText) throw new Error("AI response is empty or malformed");
-      
+
       // Remove any code block formatting
       planText = planText.replace(/^```json\n?|```$/g, "").trim();
       planText = planText.replace(/^```\n?|```$/g, "").trim();
-      
+
       // Extract JSON if embedded in text
       const jsonMatch = planText.match(/(\{.*\})/s);
       if (jsonMatch && jsonMatch[0]) {
         planText = jsonMatch[0];
       }
-      
+
       // Parse JSON safely
       let plan;
       try {
@@ -167,10 +167,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/diet/plans/:id/activate", requireAuth, async (req, res) => {
+    try {
+      // First deactivate any currently active plan
+      await storage.deactivateAllDietPlans(req.user!.id);
+
+      // Then activate the selected plan
+      const plan = await storage.activateDietPlan(req.params.id);
+      res.json(plan);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
   app.post("/api/diet/plans", requireAuth, async (req, res) => {
     try {
       const validated = insertDietPlanSchema.parse(req.body);
-      const plan = await storage.createDietPlan(req.user!.id, validated);
+      const plan = await storage.createDietPlan(req.user!.id, {
+        ...validated,
+        isActive: false // Ensure new plans are not active by default
+      });
       res.json(plan);
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });
@@ -189,20 +205,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      
+
       let planText = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (!planText) throw new Error("AI response is empty or malformed");
-      
+
       // Remove any code block formatting
       planText = planText.replace(/^```json\n?|```$/g, "").trim();
       planText = planText.replace(/^```\n?|```$/g, "").trim();
-      
+
       // Extract JSON if embedded in text
       const jsonMatch = planText.match(/(\{.*\})/s);
       if (jsonMatch && jsonMatch[0]) {
         planText = jsonMatch[0];
       }
-      
+
       // Parse JSON safely
       let plan;
       try {

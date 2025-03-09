@@ -38,6 +38,8 @@ export interface IStorage {
   getDietPlans(userId: string): Promise<DietPlan[]>;
   updateDietPlan(id: string, data: Partial<DietPlan>): Promise<DietPlan>;
   deleteDietPlan(id: string): Promise<void>;
+  deactivateAllDietPlans(userId: string): Promise<void>;
+  activateDietPlan(id: string): Promise<DietPlan>;
 
   // Workout plan operations  
   createWorkoutPlan(userId: string, plan: Omit<WorkoutPlan, "id" | "userId">): Promise<WorkoutPlan>;
@@ -143,7 +145,7 @@ export class MemStorage implements IStorage {
 
   async createDietPlan(userId: string, plan: Omit<DietPlan, "id" | "userId">): Promise<DietPlan> {
     const id = this.generateId();
-    const dietPlan = { id, userId, ...plan };
+    const dietPlan = { id, userId, ...plan, isActive: true }; // Ensure new plans are active
     this.dietPlans.set(id, dietPlan);
     return dietPlan;
   }
@@ -163,6 +165,26 @@ export class MemStorage implements IStorage {
 
   async deleteDietPlan(id: string): Promise<void> {
     this.dietPlans.delete(id);
+  }
+
+  async deactivateAllDietPlans(userId: string): Promise<void> {
+    for (const [id, plan] of this.dietPlans) {
+      if (plan.userId === userId && plan.isActive) {
+        plan.isActive = false;
+        this.dietPlans.set(id, plan);
+      }
+    }
+  }
+
+  async activateDietPlan(id: string): Promise<DietPlan> {
+    const plan = this.dietPlans.get(id);
+    if (!plan) throw new Error('Diet plan not found');
+
+    await this.deactivateAllDietPlans(plan.userId); // Deactivate others before activating this one
+
+    const updatedPlan = { ...plan, isActive: true };
+    this.dietPlans.set(id, updatedPlan);
+    return updatedPlan;
   }
 
   async createWorkoutPlan(userId: string, plan: Omit<WorkoutPlan, "id" | "userId">): Promise<WorkoutPlan> {

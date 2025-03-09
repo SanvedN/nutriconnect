@@ -23,17 +23,35 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Save, Trash } from "lucide-react";
+import { Loader2, Plus, Save, Trash, Check } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 const dietPlanFormSchema = z.object({
   dietaryPreferences: z.string(),
   goals: z.string(),
 });
 
+type DietPlan = {
+  id: string;
+  name: string;
+  plan: any;
+  isAiGenerated: boolean;
+  isActive?: boolean;
+  createdAt: string;
+};
+
 export default function DietPlanner() {
   const { toast } = useToast();
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<DietPlan | null>(null);
 
   const form = useForm({
     resolver: zodResolver(dietPlanFormSchema),
@@ -43,7 +61,7 @@ export default function DietPlanner() {
     },
   });
 
-  const { data: dietPlans, isLoading: isLoadingPlans } = useQuery({
+  const { data: dietPlans = [], isLoading: isLoadingPlans } = useQuery<DietPlan[]>({
     queryKey: ["/api/diet/plans"],
   });
 
@@ -71,7 +89,7 @@ export default function DietPlanner() {
   const savePlanMutation = useMutation({
     mutationFn: async (plan: any) => {
       const res = await apiRequest("POST", "/api/diet/plans", {
-        name: "Custom Diet Plan",
+        name: `Diet Plan - ${new Date().toLocaleDateString()}`,
         plan,
         isAiGenerated: true,
       });
@@ -86,8 +104,21 @@ export default function DietPlanner() {
     },
   });
 
+  const setActiveMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      await apiRequest("PATCH", `/api/diet/plans/${planId}/activate`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/diet/plans"] });
+      toast({
+        title: "Plan activated",
+        description: "This is now your active diet plan",
+      });
+    },
+  });
+
   const deletePlanMutation = useMutation({
-    mutationFn: async (planId: number) => {
+    mutationFn: async (planId: string) => {
       await apiRequest("DELETE", `/api/diet/plans/${planId}`);
     },
     onSuccess: () => {
@@ -101,6 +132,58 @@ export default function DietPlanner() {
 
   function onSubmit(data: z.infer<typeof dietPlanFormSchema>) {
     generateMutation.mutate(data);
+  }
+
+  function formatPlanDisplay(plan: any) {
+    if (!plan) return null;
+
+    // Handle different plan structures
+    const days = plan.days || plan.weeklyPlan?.days || plan;
+
+    if (Array.isArray(days)) {
+      return days.map((day, index) => (
+        <div key={index} className="border-b pb-4 last:border-0">
+          <h3 className="font-semibold mb-2 capitalize">{day.day || `Day ${index + 1}`}</h3>
+          {Array.isArray(day.meals) ? (
+            <div className="space-y-3">
+              {day.meals.map((meal: any, mealIndex: number) => (
+                <div key={mealIndex} className="bg-gray-50 p-3 rounded-lg">
+                  {typeof meal === 'string' ? (
+                    <p>{meal}</p>
+                  ) : (
+                    <>
+                      <h4 className="font-medium">{meal.name || 'Meal'}</h4>
+                      <p className="text-gray-600">{meal.description || JSON.stringify(meal)}</p>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <pre className="bg-gray-50 p-3 rounded-lg overflow-x-auto">
+              {JSON.stringify(day, null, 2)}
+            </pre>
+          )}
+        </div>
+      ));
+    }
+
+    // Handle object structure
+    return Object.entries(days).map(([day, meals]) => (
+      <div key={day} className="border-b pb-4 last:border-0">
+        <h3 className="font-semibold mb-2 capitalize">{day}</h3>
+        <div className="space-y-3">
+          {Object.entries(meals as any).map(([mealName, details], idx) => (
+            <div key={idx} className="bg-gray-50 p-3 rounded-lg">
+              <h4 className="font-medium capitalize">{mealName}</h4>
+              <p className="text-gray-600">
+                {typeof details === 'string' ? details : JSON.stringify(details, null, 2)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    ));
   }
 
   return (
@@ -212,64 +295,7 @@ export default function DietPlanner() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {generatedPlan && typeof generatedPlan === 'object' && (
-                      <>
-                        {/* Display title if available */}
-                        {generatedPlan.title && (
-                          <h2 className="text-xl font-bold">{generatedPlan.title}</h2>
-                        )}
-
-                        {/* Display days from different possible structures */}
-                        {generatedPlan.days && Array.isArray(generatedPlan.days) ? (
-                          // Format for array of day objects
-                          generatedPlan.days.map((dayObj: any, index: number) => (
-                            <div key={index} className="border-b pb-4">
-                              <h3 className="font-semibold mb-2 capitalize">{dayObj.day}</h3>
-                              <div className="grid gap-4">
-                                {Array.isArray(dayObj.meals) ? (
-                                  dayObj.meals.map((meal: any, mealIdx: number) => (
-                                    <div key={mealIdx} className="bg-gray-50 p-4 rounded-lg">
-                                      {typeof meal === 'string' ? (
-                                        <p>{meal}</p>
-                                      ) : (
-                                        <>
-                                          <h4 className="font-medium capitalize mb-2">{meal.name || "Meal"}</h4>
-                                          <p>{meal.description || JSON.stringify(meal)}</p>
-                                        </>
-                                      )}
-                                    </div>
-                                  ))
-                                ) : (
-                                  <p>No detailed meal information available</p>
-                                )}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          // Format for weekday object structure
-                          Object.entries(generatedPlan.weeklyDietPlan?.days || generatedPlan).map(([day, meals]: [string, any]) => (
-                            <div key={day} className="border-b pb-4">
-                              <h3 className="font-semibold mb-2 capitalize">{day}</h3>
-                              {typeof meals === 'object' ? (
-                                <div className="grid gap-4">
-                                  {Object.entries(meals).map(([mealName, mealDetails]: [string, any], mIdx: number) => (
-                                    <div key={mIdx} className="bg-gray-50 p-4 rounded-lg">
-                                      <h4 className="font-medium capitalize mb-2">{mealName}</h4>
-                                      <p>{typeof mealDetails === 'string' ? 
-                                        mealDetails : 
-                                        JSON.stringify(mealDetails, null, 2)}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p>{typeof meals === 'string' ? meals : JSON.stringify(meals, null, 2)}</p>
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </>
-                    )}
+                    {formatPlanDisplay(generatedPlan)}
                   </div>
                 </CardContent>
               </Card>
@@ -280,32 +306,58 @@ export default function DietPlanner() {
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-green-600" />
             </div>
-          ) : dietPlans?.length > 0 ? (
+          ) : dietPlans.length > 0 ? (
             <Card>
               <CardHeader>
                 <CardTitle>Saved Diet Plans</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {dietPlans.map((plan: any) => (
+                  {dietPlans.map((plan) => (
                     <div
                       key={plan.id}
                       className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
                     >
-                      <div>
-                        <p className="font-medium">{plan.name}</p>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{plan.name}</p>
+                          {plan.isActive && (
+                            <Badge variant="secondary" className="text-green-600">
+                              Active
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500">
                           {new Date(plan.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deletePlanMutation.mutate(plan.id)}
-                        disabled={deletePlanMutation.isPending}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedPlan(plan)}
+                        >
+                          View Details
+                        </Button>
+                        {!plan.isActive && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setActiveMutation.mutate(plan.id)}
+                            disabled={setActiveMutation.isPending}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deletePlanMutation.mutate(plan.id)}
+                          disabled={deletePlanMutation.isPending}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -321,6 +373,27 @@ export default function DietPlanner() {
               </CardContent>
             </Card>
           )}
+
+          {/* Plan Details Dialog */}
+          <Dialog open={selectedPlan !== null} onOpenChange={() => setSelectedPlan(null)}>
+            <DialogContent className="max-w-3xl max-h-[80vh]">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedPlan?.name}
+                  {selectedPlan?.isActive && (
+                    <Badge variant="secondary" className="ml-2 text-green-600">
+                      Active Plan
+                    </Badge>
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+              <ScrollArea className="h-full max-h-[calc(80vh-100px)] pr-4">
+                <div className="space-y-6">
+                  {selectedPlan && formatPlanDisplay(selectedPlan.plan)}
+                </div>
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
         </motion.div>
       </main>
     </div>

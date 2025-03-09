@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const recipeFormSchema = z.object({
   name: z.string().min(1, "Recipe name is required"),
@@ -519,7 +520,7 @@ export default function RecipeGenerator() {
 
           {/* Recipe Details Dialog */}
           <Dialog open={selectedRecipe !== null} onOpenChange={() => setSelectedRecipe(null)}>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-3xl max-h-[80vh]">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <CookingPot className="h-5 w-5" />
@@ -527,45 +528,47 @@ export default function RecipeGenerator() {
                 </DialogTitle>
               </DialogHeader>
 
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-semibold mb-2">Ingredients</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {selectedRecipe?.ingredients.map((ingredient, index) => (
-                      <li key={index} className="text-gray-600">{ingredient}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-2">Instructions</h3>
-                  <ol className="list-decimal list-inside space-y-2">
-                    {selectedRecipe?.instructions.map((instruction, index) => (
-                      <li key={index} className="text-gray-600">{instruction}</li>
-                    ))}
-                  </ol>
-                </div>
-
-                {selectedRecipe?.nutrition && (
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="font-semibold mb-2">Nutritional Information</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {Object.entries(selectedRecipe.nutrition).map(([key, value]) => (
-                        <div key={key}>
-                          <p className="text-sm text-gray-500 capitalize">{key}</p>
-                          <p className="font-medium">{value}</p>
-                        </div>
+              <ScrollArea className="h-full max-h-[calc(80vh-100px)] pr-4">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold mb-2">Ingredients</h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {selectedRecipe?.ingredients.map((ingredient, index) => (
+                        <li key={index} className="text-gray-600">{ingredient}</li>
                       ))}
-                    </div>
+                    </ul>
                   </div>
-                )}
 
-                <div>
-                  <p className="text-sm text-gray-500">
-                    Created on {new Date(selectedRecipe?.createdAt || '').toLocaleDateString()}
-                  </p>
+                  <div>
+                    <h3 className="font-semibold mb-2">Instructions</h3>
+                    <ol className="list-decimal list-inside space-y-2">
+                      {selectedRecipe?.instructions.map((instruction, index) => (
+                        <li key={index} className="text-gray-600">{instruction}</li>
+                      ))}
+                    </ol>
+                  </div>
+
+                  {selectedRecipe?.nutrition && (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="font-semibold mb-2">Nutritional Information</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {Object.entries(selectedRecipe.nutrition).map(([key, value]) => (
+                          <div key={key}>
+                            <p className="text-sm text-gray-500 capitalize">{key}</p>
+                            <p className="font-medium">{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-sm text-gray-500">
+                      Created on {new Date(selectedRecipe?.createdAt || '').toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              </ScrollArea>
             </DialogContent>
           </Dialog>
         </motion.div>
