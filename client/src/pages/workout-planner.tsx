@@ -239,44 +239,73 @@ export default function WorkoutPlanner() {
                 <CardContent>
                   <div className="space-y-6">
                     {generatedPlan && typeof generatedPlan === 'object' && (
-                      Object.entries(generatedPlan.weeklyWorkoutPlan?.days || generatedPlan).map(([day, exercises]: [string, any]) => (
-                        <div key={day} className="border-b pb-4">
-                          <h3 className="font-semibold mb-2 capitalize">{day}</h3>
-                          <div className="space-y-4">
-                            {Array.isArray(exercises) ? (
-                              exercises.map((exercise: any, index: number) => (
-                                <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                                  <h4 className="font-medium mb-1">{exercise.name || 'Exercise'}</h4>
-                                  <p className="text-sm text-gray-600">
-                                    {exercise.sets && `${exercise.sets} sets`} 
-                                    {exercise.reps && ` × ${exercise.reps} reps`}
-                                    {exercise.weight && ` @ ${exercise.weight}`}
-                                    {exercise.duration && ` for ${exercise.duration}`}
-                                  </p>
-                                  {exercise.notes && (
-                                    <p className="text-xs text-gray-500 mt-1">{exercise.notes}</p>
-                                  )}
-                                </div>
-                              ))
-                            ) : typeof exercises === 'object' ? (
-                              Object.entries(exercises).map(([name, details]: [string, any], index: number) => (
-                                <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                                  <h4 className="font-medium mb-1">{name}</h4>
-                                  <p className="text-sm text-gray-600">
-                                    {typeof details === 'string' 
-                                      ? details 
-                                      : typeof details === 'object' 
-                                        ? JSON.stringify(details) 
-                                        : String(details)}
-                                  </p>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-sm text-gray-600">{String(exercises)}</p>
-                            )}
-                          </div>
-                        </div>
-                      ))
+                      <>
+                        {/* Display title if available */}
+                        {generatedPlan.title && (
+                          <h2 className="text-xl font-bold">{generatedPlan.title}</h2>
+                        )}
+
+                        {/* Handle different possible data structures */}
+                        {generatedPlan.days && Array.isArray(generatedPlan.days) ? (
+                          // Format for array of day objects
+                          generatedPlan.days.map((dayObj: any, index: number) => (
+                            <div key={index} className="border-b pb-4">
+                              <h3 className="font-semibold mb-2 capitalize">{dayObj.day}</h3>
+                              <div className="grid gap-4">
+                                {Array.isArray(dayObj.exercises) ? (
+                                  dayObj.exercises.map((exercise: any, exIndex: number) => (
+                                    <div key={exIndex} className="bg-gray-50 p-4 rounded-lg">
+                                      {typeof exercise === 'string' ? (
+                                        <p>{exercise}</p>
+                                      ) : (
+                                        <>
+                                          <h4 className="font-medium mb-2">{exercise.name || "Exercise"}</h4>
+                                          {exercise.sets && <p className="text-sm">Sets: {exercise.sets}</p>}
+                                          {exercise.reps && <p className="text-sm">Reps: {exercise.reps}</p>}
+                                          {exercise.rest && <p className="text-sm">Rest: {exercise.rest}</p>}
+                                          {exercise.notes && <p className="text-sm mt-2 italic">{exercise.notes}</p>}
+                                          {!exercise.sets && !exercise.reps && (
+                                            <pre className="whitespace-pre-wrap text-sm">{JSON.stringify(exercise, null, 2)}</pre>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p>No detailed exercise information available</p>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          // Format for weekday object structure
+                          Object.entries(generatedPlan.weeklyWorkout?.days || generatedPlan).map(([day, exercises]: [string, any]) => (
+                            <div key={day} className="border-b pb-4">
+                              <h3 className="font-semibold mb-2 capitalize">{day}</h3>
+                              <div className="grid gap-4">
+                                {Array.isArray(exercises) ? (
+                                  exercises.map((exercise: any, index: number) => (
+                                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                                      <h4 className="font-medium mb-2">{exercise.name}</h4>
+                                      <p className="text-sm">Sets: {exercise.sets}, Reps: {exercise.reps}</p>
+                                      {exercise.rest && <p className="text-sm">Rest: {exercise.rest}</p>}
+                                      {exercise.notes && <p className="text-sm mt-2 italic">{exercise.notes}</p>}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="bg-gray-50 p-4 rounded-lg">
+                                    {typeof exercises === 'string' ? (
+                                      <p>{exercises}</p>
+                                    ) : (
+                                      <pre className="whitespace-pre-wrap text-sm">{JSON.stringify(exercises, null, 2)}</pre>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </>
                     )}
                   </div>
                 </CardContent>
