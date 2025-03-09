@@ -80,10 +80,10 @@ export default function WeightLog() {
   });
 
   function onSubmit(data: z.infer<typeof weightLogSchema>) {
-    // Ensure we send a number to the API
+    // Ensure we send a number to the API and date as ISO string
     addWeightMutation.mutate({
       weight: Number(data.weight),
-      date: data.date
+      date: data.date instanceof Date ? data.date.toISOString() : data.date
     });
   }
 

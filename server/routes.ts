@@ -244,10 +244,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Weight log routes
   app.post("/api/weight/logs", requireAuth, async (req, res) => {
     try {
-      const validated = insertWeightLogSchema.parse(req.body);
-      const log = await storage.createWeightLog(req.user!.id, validated);
+      // Ensure we're handling both Date objects and ISO strings
+      const weightData = {
+        weight: Number(req.body.weight),
+        date: req.body.date instanceof Date ? req.body.date : new Date(req.body.date)
+      };
+      const log = await storage.createWeightLog(req.user!.id, weightData);
       res.json(log);
     } catch (error) {
+      console.error("Weight log error:", error);
       res.status(400).json({ message: (error as Error).message });
     }
   });
