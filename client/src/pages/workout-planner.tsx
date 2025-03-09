@@ -138,7 +138,7 @@ export default function WorkoutPlanner() {
     generateMutation.mutate(data);
   }
 
-  function formatPlanDisplay(plan: any) {
+  function formatWorkoutDisplay(plan: any) { // Assumed function definition
     if (!plan) return null;
 
     // Handle different plan structures
@@ -339,7 +339,7 @@ export default function WorkoutPlanner() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {formatPlanDisplay(generatedPlan)}
+                    {formatWorkoutDisplay(generatedPlan)}
                   </div>
                 </CardContent>
               </Card>
@@ -433,7 +433,7 @@ export default function WorkoutPlanner() {
               </DialogHeader>
               <ScrollArea className="h-full max-h-[calc(80vh-100px)] pr-4">
                 <div className="space-y-6">
-                  {selectedPlan && formatPlanDisplay(selectedPlan.plan)}
+                  {selectedPlan && formatWorkoutDisplay(selectedPlan.plan)}
                 </div>
               </ScrollArea>
             </DialogContent>

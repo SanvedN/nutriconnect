@@ -117,38 +117,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {i === 0
-                          ? "Updated weight log"
-                          : i === 1
-                            ? "Generated new diet plan"
-                            : "Created workout routine"}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {format(
-                          new Date().setDate(new Date().getDate() - i),
-                          "PPP",
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Dashboard ends here */}
         </motion.div>
       </main>
     </div>

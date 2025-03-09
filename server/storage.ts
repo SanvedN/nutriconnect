@@ -164,6 +164,9 @@ export class MemStorage implements IStorage {
   }
 
   async deleteDietPlan(id: string): Promise<void> {
+    if (!this.dietPlans.has(id)) {
+      throw new Error('Diet plan not found');
+    }
     this.dietPlans.delete(id);
   }
 
@@ -196,6 +199,13 @@ export class MemStorage implements IStorage {
 
   async getWorkoutPlans(userId: string): Promise<WorkoutPlan[]> {
     return Array.from(this.workoutPlans.values()).filter(plan => plan.userId === userId);
+  }
+
+  async deleteWorkoutPlan(id: string): Promise<void> {
+    if (!this.workoutPlans.has(id)) {
+      throw new Error('Workout plan not found');
+    }
+    this.workoutPlans.delete(id);
   }
 
   async updateWorkoutPlan(id: string, data: Partial<WorkoutPlan>): Promise<WorkoutPlan> {
