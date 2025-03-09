@@ -44,7 +44,7 @@ export default function WorkoutPlanner() {
     },
   });
 
-  const { data: workoutPlans, isLoading: isLoadingPlans } = useQuery({
+  const { data: workoutPlans = [], isLoading: isLoadingPlans } = useQuery({
     queryKey: ["/api/workout/plans"],
   });
 

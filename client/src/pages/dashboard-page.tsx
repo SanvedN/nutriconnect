@@ -71,14 +71,14 @@ export default function DashboardPage() {
               description="Last recorded weight"
             />
             <StatsCard
-              title="Active Diet Plans"
-              value={dietPlans?.length || 0}
-              description="Personalized meal plans"
+              title="Active Diet Plan"
+              value={dietPlans?.filter(plan => plan.isActive)?.length || 0}
+              description="Personalized meal plan"
             />
             <StatsCard
-              title="Active Workout Plans"
-              value={workoutPlans?.length || 0}
-              description="Custom exercise routines"
+              title="Active Workout Plan"
+              value={workoutPlans?.filter(plan => plan.isActive)?.length || 0}
+              description="Custom exercise routine"
             />
           </div>
 
