@@ -24,7 +24,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronDown, Loader2, Plus, Trash } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { format } from "date-fns";
 
 const dietPlanFormSchema = z.object({
   dietaryPreferences: z.string(),
@@ -43,16 +42,8 @@ export default function DietPlanner() {
     },
   });
 
-  // Display all saved plans
-  const { data: savedPlans = [], isLoading: isLoadingSavedPlans } = useQuery({
+  const { data: dietPlans, isLoading: isLoadingPlans } = useQuery({
     queryKey: ["/api/diet/plans"],
-  });
-
-  // Get active plan
-  const { data: activePlan, isLoading: isLoadingActivePlan } = useQuery({
-    queryKey: ["/api/diet/plans/active"],
-    retry: false,
-    enabled: true,
   });
 
   const generateMutation = useMutation({
@@ -284,47 +275,18 @@ export default function DietPlanner() {
             </motion.div>
           )}
 
-          {/* Active Diet Plan */}
-          {activePlan && (
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>Your Active Diet Plan</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="p-4 border rounded-lg bg-muted/50">
-                  <h3 className="text-lg font-medium mb-2">{activePlan.name}</h3>
-                  <div className="space-y-4">
-                    {Object.entries(activePlan.plan).map(([day, meals]) => (
-                      <div key={day} className="border-t pt-2">
-                        <h4 className="font-medium capitalize">{day}</h4>
-                        <div className="pl-4">
-                          {typeof meals === 'object' && Object.entries(meals).map(([meal, food]) => (
-                            <div key={meal} className="mt-2">
-                              <h5 className="text-sm font-medium capitalize">{meal}:</h5>
-                              <p className="text-sm">{typeof food === 'string' ? food : JSON.stringify(food)}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {isLoadingPlans ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-green-600" />
             </div>
-          ) : savedPlans?.length > 0 ? (
+          ) : dietPlans?.length > 0 ? (
             <Card>
               <CardHeader>
                 <CardTitle>Saved Diet Plans</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {savedPlans.map((plan: any) => (
+                  {dietPlans.map((plan: any) => (
                     <div
                       key={plan.id}
                       className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
