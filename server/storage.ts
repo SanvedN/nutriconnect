@@ -5,6 +5,20 @@ import createMemoryStore from "memorystore";
 
 const MemoryStore = createMemoryStore(session);
 
+// Add Recipe type
+type Recipe = {
+  id: string;
+  name: string;
+  ingredients: string[];
+  instructions: string[];
+  nutrition: Record<string, string>;
+  userId: string;
+  createdAt: Date;
+  mealType: string;
+};
+
+type CreateRecipe = Omit<Recipe, "id" | "userId" | "createdAt">;
+
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
@@ -48,6 +62,12 @@ export interface IStorage {
   deleteLike(userId: string, postId: string): Promise<void>;
   getLikes(postId: string): Promise<Like[]>;
 
+  // Recipe operations
+  createRecipe(userId: string, recipe: CreateRecipe): Promise<Recipe>;
+  getRecipes(userId: string): Promise<Recipe[]>;
+  updateRecipe(id: string, data: Partial<Recipe>): Promise<Recipe>;
+  deleteRecipe(id: string): Promise<void>;
+
   sessionStore: session.Store;
 }
 
@@ -59,6 +79,7 @@ export class MemStorage implements IStorage {
   private posts: Map<string, Post> = new Map();
   private comments: Map<string, Comment> = new Map();
   private likes: Map<string, Like> = new Map();
+  private recipes: Map<string, Recipe> = new Map();
   private resetTokens: Map<string, { userId: string; expiry: Date }> = new Map();
   sessionStore: session.Store;
 
@@ -239,6 +260,37 @@ export class MemStorage implements IStorage {
   async getLikes(postId: string): Promise<Like[]> {
     return Array.from(this.likes.values())
       .filter(like => like.postId === postId);
+  }
+
+  async createRecipe(userId: string, recipe: CreateRecipe): Promise<Recipe> {
+    const id = this.generateId();
+    const newRecipe = {
+      id,
+      userId,
+      ...recipe,
+      createdAt: new Date(),
+    };
+    this.recipes.set(id, newRecipe);
+    return newRecipe;
+  }
+
+  async getRecipes(userId: string): Promise<Recipe[]> {
+    return Array.from(this.recipes.values())
+      .filter(recipe => recipe.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updateRecipe(id: string, data: Partial<Recipe>): Promise<Recipe> {
+    const recipe = this.recipes.get(id);
+    if (!recipe) throw new Error('Recipe not found');
+
+    const updatedRecipe = { ...recipe, ...data };
+    this.recipes.set(id, updatedRecipe);
+    return updatedRecipe;
+  }
+
+  async deleteRecipe(id: string): Promise<void> {
+    this.recipes.delete(id);
   }
 }
 

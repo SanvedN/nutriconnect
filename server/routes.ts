@@ -19,11 +19,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // User routes
-  app.patch("/api/user", requireAuth, async (req, res) => {
+  // Recipe routes
+  app.post("/api/recipes/generate", requireAuth, async (req, res) => {
     try {
-      const updated = await storage.updateUser(req.user!.id, req.body);
-      res.json(updated);
+      const { meal, ingredients, goals } = req.body;
+      const prompt = `Generate a recipe for ${meal} using these ingredients: ${ingredients}, aligned with goals: ${goals}. Include preparation steps, macros and calories. Format as JSON with the following structure:
+      {
+        "name": "Recipe Name",
+        "ingredients": ["ingredient1", "ingredient2"],
+        "instructions": ["step1", "step2"],
+        "nutrition": {
+          "calories": "amount",
+          "protein": "amount",
+          "carbs": "amount",
+          "fat": "amount"
+        }
+      }`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const recipe = JSON.parse(response.text());
+
+      res.json({ recipe });
+    } catch (error) {
+      console.error("Recipe generation error:", error);
+      res.status(500).json({ message: "Failed to generate recipe" });
+    }
+  });
+
+  app.post("/api/recipes", requireAuth, async (req, res) => {
+    try {
+      // Convert string arrays back to proper format if they're stringified
+      const recipe = {
+        ...req.body,
+        ingredients: Array.isArray(req.body.ingredients) 
+          ? req.body.ingredients 
+          : req.body.ingredients.split('\n'),
+        instructions: Array.isArray(req.body.instructions)
+          ? req.body.instructions
+          : req.body.instructions.split('\n'),
+      };
+
+      const savedRecipe = await storage.createRecipe(req.user!.id, recipe);
+      res.json(savedRecipe);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/recipes", requireAuth, async (req, res) => {
+    try {
+      const recipes = await storage.getRecipes(req.user!.id);
+      res.json(recipes);
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });
     }
@@ -34,11 +81,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { dietaryPreferences, goals } = req.body;
       const prompt = `Generate a weekly diet plan with the following preferences: ${dietaryPreferences} and goals: ${goals}. Include macro details and meal timings. Format as JSON.`;
-      
+
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const plan = JSON.parse(response.text());
-      
+
       res.json({ plan });
     } catch (error) {
       res.status(500).json({ message: "Failed to generate diet plan" });
@@ -59,33 +106,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const plans = await storage.getDietPlans(req.user!.id);
     res.json(plans);
   });
-
-  // Recipe routes
-  app.post("/api/recipe/generate", requireAuth, async (req, res) => {
-    try {
-      const { meal, ingredients, goals } = req.body;
-      const prompt = `Generate a recipe for ${meal} using these ingredients: ${ingredients}, aligned with goals: ${goals}. Include preparation steps, macros and calories. Format as JSON.`;
-      
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const recipe = JSON.parse(response.text());
-      
-      res.json({ recipe });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to generate recipe" });
-    }
-  });
-
   // Workout plan routes
   app.post("/api/workout/generate", requireAuth, async (req, res) => {
     try {
       const { equipment, goals, level } = req.body;
       const prompt = `Generate a weekly workout plan with available equipment: ${equipment}, goals: ${goals}, and fitness level: ${level}. Include exercises, sets, reps and rest periods. Format as JSON.`;
-      
+
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const plan = JSON.parse(response.text());
-      
+
       res.json({ plan });
     } catch (error) {
       res.status(500).json({ message: "Failed to generate workout plan" });
