@@ -20,10 +20,20 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronDown, Dumbbell, Loader2, Trash } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { format } from "date-fns";
+import { Save, Trash } from "lucide-react";
 
 const workoutFormSchema = z.object({
   equipment: z.string(),
@@ -46,6 +56,18 @@ export default function WorkoutPlanner() {
 
   const { data: workoutPlans, isLoading: isLoadingPlans } = useQuery({
     queryKey: ["/api/workout/plans"],
+  });
+
+  // Display all saved plans
+  const { data: savedPlans = [], isLoading: isLoadingSavedPlans } = useQuery({
+    queryKey: ["/api/workout/plans"],
+  });
+
+  // Get active plan
+  const { data: activePlan, isLoading: isLoadingActivePlan } = useQuery({
+    queryKey: ["/api/workout/plans/active"],
+    retry: false,
+    enabled: true,
   });
 
   const generateMutation = useMutation({
@@ -312,6 +334,36 @@ export default function WorkoutPlanner() {
             </motion.div>
           )}
 
+          {/* Active Workout Plan */}
+          {activePlan && (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Your Active Workout Plan</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 border rounded-lg bg-muted/50">
+                  <h3 className="text-lg font-medium mb-2">{activePlan.name}</h3>
+                  <div className="space-y-4">
+                    {Object.entries(activePlan.plan).map(([day, exercises]) => (
+                      <div key={day} className="border-t pt-2">
+                        <h4 className="font-medium capitalize">{day}</h4>
+                        <div className="pl-4">
+                          {Array.isArray(exercises) ? exercises.map((exercise, i) => (
+                            <div key={i} className="mt-2">
+                              <p className="text-sm">{typeof exercise === 'string' ? exercise : JSON.stringify(exercise)}</p>
+                            </div>
+                          )) : (
+                            <p className="text-sm">{JSON.stringify(exercises)}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {isLoadingPlans ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-green-600" />
@@ -353,6 +405,61 @@ export default function WorkoutPlanner() {
                 <div className="text-center text-gray-500">
                   <Dumbbell className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                   <p>No saved workout plans yet. Generate your first plan above!</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Display saved plans */}
+          {savedPlans?.length > 0 && (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Your Saved Workout Plans</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4">
+                  {savedPlans.map((plan) => (
+                    <div
+                      key={plan.id}
+                      className="p-4 border rounded-lg bg-muted/50"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-lg font-medium">{plan.name}</h3>
+                        <div className="flex items-center space-x-2">
+                          {plan.isActive ? (
+                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Active</span>
+                          ) : (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  await apiRequest("POST", `/api/workout/plans/${plan.id}/activate`);
+                                  queryClient.invalidateQueries({ queryKey: ["/api/workout/plans"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/workout/plans/active"] });
+                                  toast({
+                                    title: "Plan activated",
+                                    description: "Workout plan set as active",
+                                  });
+                                } catch (error) {
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to activate plan",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              Activate
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-500 mb-2">
+                        Created on {format(new Date(plan.createdAt), "MMM d, yyyy")}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
