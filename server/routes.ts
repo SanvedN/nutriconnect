@@ -1,0 +1,195 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { setupAuth } from "./auth";
+import { storage } from "./storage";
+import { insertDietPlanSchema, insertWorkoutPlanSchema, insertWeightLogSchema, insertPostSchema, insertCommentSchema } from "@shared/schema";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  setupAuth(app);
+
+  // Middleware to ensure user is authenticated
+  const requireAuth = (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    next();
+  };
+
+  // User routes
+  app.patch("/api/user", requireAuth, async (req, res) => {
+    try {
+      const updated = await storage.updateUser(req.user!.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  // Diet plan routes
+  app.post("/api/diet/generate", requireAuth, async (req, res) => {
+    try {
+      const { dietaryPreferences, goals } = req.body;
+      const prompt = `Generate a weekly diet plan with the following preferences: ${dietaryPreferences} and goals: ${goals}. Include macro details and meal timings. Format as JSON.`;
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const plan = JSON.parse(response.text());
+      
+      res.json({ plan });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate diet plan" });
+    }
+  });
+
+  app.post("/api/diet/plans", requireAuth, async (req, res) => {
+    try {
+      const validated = insertDietPlanSchema.parse(req.body);
+      const plan = await storage.createDietPlan(req.user!.id, validated);
+      res.json(plan);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/diet/plans", requireAuth, async (req, res) => {
+    const plans = await storage.getDietPlans(req.user!.id);
+    res.json(plans);
+  });
+
+  // Recipe routes
+  app.post("/api/recipe/generate", requireAuth, async (req, res) => {
+    try {
+      const { meal, ingredients, goals } = req.body;
+      const prompt = `Generate a recipe for ${meal} using these ingredients: ${ingredients}, aligned with goals: ${goals}. Include preparation steps, macros and calories. Format as JSON.`;
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const recipe = JSON.parse(response.text());
+      
+      res.json({ recipe });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate recipe" });
+    }
+  });
+
+  // Workout plan routes
+  app.post("/api/workout/generate", requireAuth, async (req, res) => {
+    try {
+      const { equipment, goals, level } = req.body;
+      const prompt = `Generate a weekly workout plan with available equipment: ${equipment}, goals: ${goals}, and fitness level: ${level}. Include exercises, sets, reps and rest periods. Format as JSON.`;
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const plan = JSON.parse(response.text());
+      
+      res.json({ plan });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate workout plan" });
+    }
+  });
+
+  app.post("/api/workout/plans", requireAuth, async (req, res) => {
+    try {
+      const validated = insertWorkoutPlanSchema.parse(req.body);
+      const plan = await storage.createWorkoutPlan(req.user!.id, validated);
+      res.json(plan);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/workout/plans", requireAuth, async (req, res) => {
+    const plans = await storage.getWorkoutPlans(req.user!.id);
+    res.json(plans);
+  });
+
+  // Weight log routes
+  app.post("/api/weight/logs", requireAuth, async (req, res) => {
+    try {
+      const validated = insertWeightLogSchema.parse(req.body);
+      const log = await storage.createWeightLog(req.user!.id, validated);
+      res.json(log);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/weight/logs", requireAuth, async (req, res) => {
+    const logs = await storage.getWeightLogs(req.user!.id);
+    res.json(logs);
+  });
+
+  // Community routes
+  app.post("/api/posts", requireAuth, async (req, res) => {
+    try {
+      const validated = insertPostSchema.parse(req.body);
+      const post = await storage.createPost(req.user!.id, validated);
+      res.json(post);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/posts", requireAuth, async (req, res) => {
+    const posts = await storage.getPosts();
+    res.json(posts);
+  });
+
+  app.delete("/api/posts/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deletePost(parseInt(req.params.id));
+      res.sendStatus(200);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.post("/api/posts/:postId/comments", requireAuth, async (req, res) => {
+    try {
+      const validated = insertCommentSchema.parse(req.body);
+      const comment = await storage.createComment(
+        req.user!.id,
+        parseInt(req.params.postId),
+        validated
+      );
+      res.json(comment);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/posts/:postId/comments", requireAuth, async (req, res) => {
+    const comments = await storage.getComments(parseInt(req.params.postId));
+    res.json(comments);
+  });
+
+  app.post("/api/posts/:postId/likes", requireAuth, async (req, res) => {
+    try {
+      const like = await storage.createLike(req.user!.id, parseInt(req.params.postId));
+      res.json(like);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.delete("/api/posts/:postId/likes", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteLike(req.user!.id, parseInt(req.params.postId));
+      res.sendStatus(200);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/posts/:postId/likes", requireAuth, async (req, res) => {
+    const likes = await storage.getLikes(parseInt(req.params.postId));
+    res.json(likes);
+  });
+
+  const httpServer = createServer(app);
+  return httpServer;
+}
