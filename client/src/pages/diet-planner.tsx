@@ -106,7 +106,7 @@ export default function DietPlanner() {
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav />
-      
+
       <main className="pl-64 p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -212,19 +212,27 @@ export default function DietPlanner() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {Object.entries(generatedPlan).map(([day, meals]: [string, any]) => (
-                      <div key={day} className="border-b pb-4">
-                        <h3 className="font-semibold mb-2 capitalize">{day}</h3>
-                        <div className="grid gap-4">
-                          {Object.entries(meals).map(([meal, details]: [string, any]) => (
-                            <div key={meal} className="bg-gray-50 p-4 rounded-lg">
-                              <h4 className="font-medium capitalize mb-2">{meal}</h4>
-                              <p className="text-sm text-gray-600">{details}</p>
-                            </div>
-                          ))}
+                    {generatedPlan && typeof generatedPlan === 'object' && (
+                      Object.entries(generatedPlan.weeklyDietPlan?.days || generatedPlan).map(([day, meals]: [string, any]) => (
+                        <div key={day} className="border-b pb-4">
+                          <h3 className="font-semibold mb-2 capitalize">{day}</h3>
+                          <div className="grid gap-4">
+                            {Object.entries(typeof meals === 'object' ? meals : {}).map(([meal, details]: [string, any]) => (
+                              <div key={meal} className="bg-gray-50 p-4 rounded-lg">
+                                <h4 className="font-medium capitalize mb-2">{meal}</h4>
+                                <p className="text-sm text-gray-600">
+                                  {typeof details === 'string' 
+                                    ? details 
+                                    : typeof details === 'object' 
+                                      ? JSON.stringify(details) 
+                                      : String(details)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>

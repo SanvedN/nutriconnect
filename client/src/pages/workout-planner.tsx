@@ -108,7 +108,7 @@ export default function WorkoutPlanner() {
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav />
-      
+
       <main className="pl-64 p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -238,33 +238,46 @@ export default function WorkoutPlanner() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {Object.entries(generatedPlan).map(([day, workouts]: [string, any]) => (
-                      <div key={day} className="border-b pb-4">
-                        <h3 className="font-semibold mb-2 capitalize">{day}</h3>
-                        <div className="space-y-4">
-                          {workouts.map((workout: any, index: number) => (
-                            <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h4 className="font-medium">{workout.exercise}</h4>
+                    {generatedPlan && typeof generatedPlan === 'object' && (
+                      Object.entries(generatedPlan.weeklyWorkoutPlan?.days || generatedPlan).map(([day, exercises]: [string, any]) => (
+                        <div key={day} className="border-b pb-4">
+                          <h3 className="font-semibold mb-2 capitalize">{day}</h3>
+                          <div className="space-y-4">
+                            {Array.isArray(exercises) ? (
+                              exercises.map((exercise: any, index: number) => (
+                                <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                                  <h4 className="font-medium mb-1">{exercise.name || 'Exercise'}</h4>
                                   <p className="text-sm text-gray-600">
-                                    {workout.sets} sets × {workout.reps} reps
+                                    {exercise.sets && `${exercise.sets} sets`} 
+                                    {exercise.reps && ` × ${exercise.reps} reps`}
+                                    {exercise.weight && ` @ ${exercise.weight}`}
+                                    {exercise.duration && ` for ${exercise.duration}`}
+                                  </p>
+                                  {exercise.notes && (
+                                    <p className="text-xs text-gray-500 mt-1">{exercise.notes}</p>
+                                  )}
+                                </div>
+                              ))
+                            ) : typeof exercises === 'object' ? (
+                              Object.entries(exercises).map(([name, details]: [string, any], index: number) => (
+                                <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                                  <h4 className="font-medium mb-1">{name}</h4>
+                                  <p className="text-sm text-gray-600">
+                                    {typeof details === 'string' 
+                                      ? details 
+                                      : typeof details === 'object' 
+                                        ? JSON.stringify(details) 
+                                        : String(details)}
                                   </p>
                                 </div>
-                                <p className="text-sm text-gray-500">
-                                  Rest: {workout.rest}
-                                </p>
-                              </div>
-                              {workout.notes && (
-                                <p className="text-sm text-gray-600 mt-2">
-                                  {workout.notes}
-                                </p>
-                              )}
-                            </div>
-                          ))}
+                              ))
+                            ) : (
+                              <p className="text-sm text-gray-600">{String(exercises)}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
