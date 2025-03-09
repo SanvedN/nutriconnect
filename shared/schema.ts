@@ -96,9 +96,9 @@ export const insertWorkoutPlanSchema = createInsertSchema(workoutPlans).pick({
   isAiGenerated: true,
 });
 
-export const insertWeightLogSchema = createInsertSchema(weightLogs).pick({
-  weight: true,
-  date: true,
+export const insertWeightLogSchema = z.object({
+  weight: z.number().positive("Weight must be greater than 0"),
+  date: z.date()
 });
 
 export const insertPostSchema = createInsertSchema(posts).pick({

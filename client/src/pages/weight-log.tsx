@@ -38,7 +38,7 @@ import {
 import { format } from "date-fns";
 
 const weightLogSchema = z.object({
-  weight: z.string().transform((val) => parseInt(val, 10)),
+  weight: z.coerce.number().positive("Weight must be greater than 0"),
   date: z.string().transform((val) => new Date(val)),
 });
 
@@ -80,7 +80,11 @@ export default function WeightLog() {
   });
 
   function onSubmit(data: z.infer<typeof weightLogSchema>) {
-    addWeightMutation.mutate(data);
+    // Ensure we send a number to the API
+    addWeightMutation.mutate({
+      weight: Number(data.weight),
+      date: data.date
+    });
   }
 
   const chartData = weightLogs
