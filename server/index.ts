@@ -7,6 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Add request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -37,33 +38,31 @@ app.use((req, res, next) => {
   next();
 });
 
-// Add this before the catch-all error handler
+// Health check endpoint
 app.get("/api/health", async (_req, res) => {
   try {
-    await database.command({ ping: 1 });
+    await database?.command({ ping: 1 });
     res.json({ status: "ok", mongo: "connected" });
   } catch (error) {
     console.error("Health check failed:", error);
     res.status(500).json({
       status: "error",
       mongo: "disconnected",
-      error: error.message
+      error: error?.message || "Unknown error"
     });
   }
 });
 
+// Start server immediately while attempting MongoDB connection
 (async () => {
   try {
-    // First connect to MongoDB
-    await connectMongoDB();
-    log("MongoDB connected successfully");
-
+    // Start server setup
     const server = await registerRoutes(app);
 
+    // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
-
       res.status(status).json({ message });
       console.error("Error:", err);
     });
@@ -74,13 +73,24 @@ app.get("/api/health", async (_req, res) => {
       serveStatic(app);
     }
 
+    // Start listening
     const port = 5000;
     server.listen({
       port,
       host: "0.0.0.0",
       reusePort: true,
     }, () => {
-      log(`serving on port ${port}`);
+      log(`Server started on port ${port}`);
+
+      // Attempt MongoDB connection after server is running
+      connectMongoDB()
+        .then(() => {
+          log("MongoDB connected successfully");
+        })
+        .catch((error) => {
+          console.error("Failed to connect to MongoDB:", error);
+          // Don't exit process, let server keep running
+        });
     });
   } catch (error) {
     console.error("Failed to start server:", error);
