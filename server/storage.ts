@@ -143,6 +143,17 @@ export class MemStorage implements IStorage {
 
   async createDietPlan(userId: string, plan: Omit<DietPlan, "id" | "userId">): Promise<DietPlan> {
     const id = this.generateId();
+    
+    // If this plan is set as active, deactivate all other plans for this user
+    if (plan.isActive) {
+      Array.from(this.dietPlans.values())
+        .filter(existingPlan => existingPlan.userId === userId && existingPlan.isActive)
+        .forEach(activePlan => {
+          activePlan.isActive = false;
+          this.dietPlans.set(activePlan.id, activePlan);
+        });
+    }
+    
     const dietPlan = { id, userId, ...plan };
     this.dietPlans.set(id, dietPlan);
     return dietPlan;
@@ -150,6 +161,29 @@ export class MemStorage implements IStorage {
 
   async getDietPlans(userId: string): Promise<DietPlan[]> {
     return Array.from(this.dietPlans.values()).filter(plan => plan.userId === userId);
+  }
+  
+  async getActiveDietPlan(userId: string): Promise<DietPlan | undefined> {
+    return Array.from(this.dietPlans.values()).find(plan => plan.userId === userId && plan.isActive);
+  }
+  
+  async setDietPlanActive(userId: string, planId: string): Promise<DietPlan> {
+    // Deactivate all other plans
+    Array.from(this.dietPlans.values())
+      .filter(plan => plan.userId === userId && plan.isActive)
+      .forEach(plan => {
+        plan.isActive = false;
+        this.dietPlans.set(plan.id, plan);
+      });
+      
+    // Set the requested plan as active
+    const plan = this.dietPlans.get(planId);
+    if (!plan) throw new Error('Diet plan not found');
+    if (plan.userId !== userId) throw new Error('Unauthorized');
+    
+    plan.isActive = true;
+    this.dietPlans.set(planId, plan);
+    return plan;
   }
 
   async updateDietPlan(id: string, data: Partial<DietPlan>): Promise<DietPlan> {
@@ -167,6 +201,17 @@ export class MemStorage implements IStorage {
 
   async createWorkoutPlan(userId: string, plan: Omit<WorkoutPlan, "id" | "userId">): Promise<WorkoutPlan> {
     const id = this.generateId();
+    
+    // If this plan is set as active, deactivate all other plans for this user
+    if (plan.isActive) {
+      Array.from(this.workoutPlans.values())
+        .filter(existingPlan => existingPlan.userId === userId && existingPlan.isActive)
+        .forEach(activePlan => {
+          activePlan.isActive = false;
+          this.workoutPlans.set(activePlan.id, activePlan);
+        });
+    }
+    
     const workoutPlan = { id, userId, ...plan };
     this.workoutPlans.set(id, workoutPlan);
     return workoutPlan;
@@ -174,6 +219,29 @@ export class MemStorage implements IStorage {
 
   async getWorkoutPlans(userId: string): Promise<WorkoutPlan[]> {
     return Array.from(this.workoutPlans.values()).filter(plan => plan.userId === userId);
+  }
+  
+  async getActiveWorkoutPlan(userId: string): Promise<WorkoutPlan | undefined> {
+    return Array.from(this.workoutPlans.values()).find(plan => plan.userId === userId && plan.isActive);
+  }
+  
+  async setWorkoutPlanActive(userId: string, planId: string): Promise<WorkoutPlan> {
+    // Deactivate all other plans
+    Array.from(this.workoutPlans.values())
+      .filter(plan => plan.userId === userId && plan.isActive)
+      .forEach(plan => {
+        plan.isActive = false;
+        this.workoutPlans.set(plan.id, plan);
+      });
+      
+    // Set the requested plan as active
+    const plan = this.workoutPlans.get(planId);
+    if (!plan) throw new Error('Workout plan not found');
+    if (plan.userId !== userId) throw new Error('Unauthorized');
+    
+    plan.isActive = true;
+    this.workoutPlans.set(planId, plan);
+    return plan;
   }
 
   async updateWorkoutPlan(id: string, data: Partial<WorkoutPlan>): Promise<WorkoutPlan> {
