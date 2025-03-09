@@ -331,8 +331,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/posts", requireAuth, async (req, res) => {
-    const posts = await storage.getPosts();
-    res.json(posts);
+    try {
+      const posts = await storage.getPosts();
+      
+      // Enhance posts with likes and comments counts and username
+      const enhancedPosts = await Promise.all(
+        posts.map(async (post) => {
+          const likes = await storage.getLikes(post.id);
+          const comments = await storage.getComments(post.id);
+          const postUser = await storage.getUser(post.userId);
+          
+          return {
+            ...post,
+            _likeCount: likes.length,
+            _commentCount: comments.length,
+            username: postUser?.username || 'Unknown user'
+          };
+        })
+      );
+      
+      res.json(enhancedPosts);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
   });
 
   app.delete("/api/posts/:id", requireAuth, async (req, res) => {
@@ -359,8 +380,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/posts/:postId/comments", requireAuth, async (req, res) => {
-    const comments = await storage.getComments(parseInt(req.params.postId));
-    res.json(comments);
+    try {
+      const comments = await storage.getComments(parseInt(req.params.postId));
+      
+      // Enhance comments with username
+      const enhancedComments = await Promise.all(
+        comments.map(async (comment) => {
+          const commentUser = await storage.getUser(comment.userId);
+          return {
+            ...comment,
+            username: commentUser?.username || 'Unknown user'
+          };
+        })
+      );
+      
+      res.json(enhancedComments);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
   });
 
   app.post("/api/posts/:postId/likes", requireAuth, async (req, res) => {
