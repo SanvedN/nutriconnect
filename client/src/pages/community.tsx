@@ -216,10 +216,12 @@ export default function Community() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          toggleLikeMutation.mutate({
-                            postId: post.id,
-                            isLiked: post._userHasLiked,
-                          });
+                          if (!toggleLikeMutation.isPending) {
+                            toggleLikeMutation.mutate({
+                              postId: post.id,
+                              isLiked: post._userHasLiked,
+                            });
+                          }
                         }}
                         disabled={toggleLikeMutation.isPending}
                       >

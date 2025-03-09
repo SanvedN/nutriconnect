@@ -10,17 +10,39 @@ const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017";
 const DB_NAME = "nutriconnect";
 
 let mongoClient: MongoClient | null = null;
+let mongoInitialized = false;
 
-async function getMongoClient() {
-  if (!mongoClient) {
+// Explicit initialization function to be called during server startup
+async function initMongoDB() {
+  if (!mongoInitialized) {
     try {
-      mongoClient = new MongoClient(MONGODB_URI);
+      // Configure MongoDB client with proper options
+      mongoClient = new MongoClient(MONGODB_URI, {
+        connectTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 10000,
+        ssl: true
+      });
+      
       await mongoClient.connect();
       console.log("Connected to MongoDB");
+      mongoInitialized = true;
     } catch (error) {
       console.error("MongoDB connection error:", error);
       // Fall back to memory storage if MongoDB connection fails
       mongoClient = null;
+      throw error; // Let the caller handle this error
+    }
+  }
+  return mongoClient;
+}
+
+async function getMongoClient() {
+  if (!mongoClient && !mongoInitialized) {
+    try {
+      await initMongoDB();
+    } catch (error) {
+      console.error("Failed to get MongoDB client:", error);
     }
   }
   return mongoClient;
@@ -337,54 +359,73 @@ export class MemStorage implements IStorage {
 
   async getPosts(): Promise<Post[]> {
     // Try to use MongoDB first, fallback to memory storage
-    const postsCollection = await this.getPostsCollection();
-    
-    if (postsCollection) {
-      try {
-        const posts = await postsCollection.find().sort({ createdAt: -1 }).toArray();
-        return posts.map(post => ({ 
-          ...post, 
-          id: post.id || post._id.toString(),
-          createdAt: new Date(post.createdAt)
-        }));
-      } catch (error) {
-        console.error("MongoDB getPosts error:", error);
-        // Fall back to memory storage
+    try {
+      const postsCollection = await this.getPostsCollection();
+      
+      if (postsCollection) {
+        try {
+          const posts = await postsCollection.find().sort({ createdAt: -1 }).toArray();
+          return posts.map(post => ({ 
+            ...post, 
+            id: post.id || post._id.toString(),
+            createdAt: new Date(post.createdAt)
+          }));
+        } catch (error) {
+          console.error("MongoDB getPosts error:", error);
+          // Fall back to memory storage
+        }
       }
+    } catch (error) {
+      console.error("Failed to get posts collection:", error);
+      // Continue to memory storage fallback
     }
     
     // Memory storage fallback
+    console.log("Using memory storage for posts");
     return Array.from(this.posts.values())
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async deletePost(id: string): Promise<void> {
-    // Try to use MongoDB first, fallback to memory storage
-    const postsCollection = await this.getPostsCollection();
-    const likesCollection = await this.getLikesCollection();
-    
-    if (postsCollection) {
-      try {
-        await postsCollection.deleteOne({ id });
-        
-        // Delete associated likes
-        if (likesCollection) {
-          await likesCollection.deleteMany({ postId: id });
+    try {
+      // Try to use MongoDB first, fallback to memory storage
+      const postsCollection = await this.getPostsCollection();
+      const likesCollection = await this.getLikesCollection();
+      
+      if (postsCollection) {
+        try {
+          const result = await postsCollection.deleteOne({ id });
+          console.log(`MongoDB delete post result: ${result.deletedCount} document(s) deleted`);
+          
+          // Delete associated likes
+          if (likesCollection) {
+            const likeResult = await likesCollection.deleteMany({ postId: id });
+            console.log(`MongoDB delete likes result: ${likeResult.deletedCount} document(s) deleted`);
+          }
+          
+          return;
+        } catch (error) {
+          console.error("MongoDB deletePost error:", error);
+          // Fall back to memory storage
         }
-        
-        return;
-      } catch (error) {
-        console.error("MongoDB deletePost error:", error);
-        // Fall back to memory storage
       }
+    } catch (error) {
+      console.error("Failed to get collections for delete:", error);
     }
     
     // Memory storage fallback
+    console.log(`Deleting post ${id} from memory storage`);
     this.posts.delete(id);
+    
     // Delete associated likes
+    let deletedCount = 0;
     Array.from(this.likes.entries())
       .filter(([_, like]) => like.postId === id)
-      .forEach(([likeId]) => this.likes.delete(likeId));
+      .forEach(([likeId]) => {
+        this.likes.delete(likeId);
+        deletedCount++;
+      });
+    console.log(`Deleted ${deletedCount} likes from memory storage`);
   }
 
   async createComment(userId: string, postId: string, comment: Omit<Comment, "id" | "userId" | "postId" | "createdAt">): Promise<Comment> {
@@ -455,23 +496,29 @@ export class MemStorage implements IStorage {
 
   async getLikes(postId: string): Promise<Like[]> {
     // Try to use MongoDB first, fallback to memory storage
-    const likesCollection = await this.getLikesCollection();
-    
-    if (likesCollection) {
-      try {
-        const likes = await likesCollection.find({ postId }).toArray();
-        return likes.map(like => ({
-          ...like,
-          id: like.id || like._id.toString(),
-          createdAt: new Date(like.createdAt)
-        }));
-      } catch (error) {
-        console.error("MongoDB getLikes error:", error);
-        // Fall back to memory storage
+    try {
+      const likesCollection = await this.getLikesCollection();
+      
+      if (likesCollection) {
+        try {
+          const likes = await likesCollection.find({ postId }).toArray();
+          return likes.map(like => ({
+            ...like,
+            id: like.id || like._id.toString(),
+            createdAt: new Date(like.createdAt)
+          }));
+        } catch (error) {
+          console.error("MongoDB getLikes error:", error);
+          // Fall back to memory storage
+        }
       }
+    } catch (error) {
+      console.error("Failed to get likes collection:", error);
+      // Continue to memory storage fallback
     }
     
     // Memory storage fallback
+    console.log("Using memory storage for likes");
     return Array.from(this.likes.values())
       .filter(like => like.postId === postId);
   }
@@ -509,3 +556,4 @@ export class MemStorage implements IStorage {
 }
 
 export const storage = new MemStorage();
+export { initMongoDB };

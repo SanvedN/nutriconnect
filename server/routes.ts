@@ -337,8 +337,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enhance posts with likes count, username, and if current user has liked
       const enhancedPosts = await Promise.all(
         posts.map(async (post) => {
-          const likes = await storage.getLikes(post.id);
-          const postUser = await storage.getUser(post.userId);
+          let likes = [];
+          let postUser = null;
+          
+          try {
+            likes = await storage.getLikes(post.id);
+          } catch (err) {
+            console.error("Error getting likes for post:", err);
+            likes = []; // Set default value if error
+          }
+          
+          try {
+            postUser = await storage.getUser(post.userId);
+          } catch (err) {
+            console.error("Error getting user for post:", err);
+          }
+          
           const userHasLiked = likes.some(like => like.userId === req.user!.id);
           
           return {
@@ -352,6 +366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(enhancedPosts);
     } catch (error) {
+      console.error("Error getting posts:", error);
       res.status(400).json({ message: (error as Error).message });
     }
   });
@@ -416,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const like = await storage.createLike(
         req.user!.id,
-        parseInt(req.params.postId),
+        req.params.postId, // Use string ID directly, matching the format in storage
       );
       res.json(like);
     } catch (error) {
@@ -426,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/posts/:postId/likes", requireAuth, async (req, res) => {
     try {
-      await storage.deleteLike(req.user!.id, parseInt(req.params.postId));
+      await storage.deleteLike(req.user!.id, req.params.postId); // Use string ID directly
       res.sendStatus(200);
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });

@@ -47,8 +47,9 @@ app.get("/api/health", async (_req, res) => {
     // Initialize MongoDB connection
     if (process.env.MONGODB_URI) {
       try {
-        const { getMongoClient } = await import('./storage');
-        await getMongoClient();
+        // Direct import of storage to avoid dynamic import issues
+        const storage = require('./storage');
+        await storage.initMongoDB();
         console.log("MongoDB initialized");
       } catch (error) {
         console.error("Failed to initialize MongoDB:", error);
