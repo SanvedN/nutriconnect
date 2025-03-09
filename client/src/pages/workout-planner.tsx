@@ -8,11 +8,6 @@ import DashboardNav from "@/components/dashboard-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   Form,
   FormControl,
   FormField,
@@ -20,9 +15,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronDown, Dumbbell, Loader2, Trash } from "lucide-react";
+import { Loader2, Dumbbell, Save, Trash } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 const workoutFormSchema = z.object({
@@ -44,7 +45,7 @@ export default function WorkoutPlanner() {
     },
   });
 
-  const { data: workoutPlans = [], isLoading: isLoadingPlans } = useQuery({
+  const { data: workoutPlans, isLoading: isLoadingPlans } = useQuery({
     queryKey: ["/api/workout/plans"],
   });
 

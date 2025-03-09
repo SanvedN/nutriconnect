@@ -27,7 +27,6 @@ export const dietPlans = pgTable("diet_plans", {
   name: text("name").notNull(),
   plan: json("plan").notNull(),
   isAiGenerated: boolean("is_ai_generated").notNull(),
-  isActive: boolean("is_active").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -37,7 +36,6 @@ export const workoutPlans = pgTable("workout_plans", {
   name: text("name").notNull(),
   plan: json("plan").notNull(),
   isAiGenerated: boolean("is_ai_generated").notNull(),
-  isActive: boolean("is_active").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -90,14 +88,12 @@ export const insertDietPlanSchema = createInsertSchema(dietPlans).pick({
   name: true,
   plan: true,
   isAiGenerated: true,
-  isActive: true,
 });
 
 export const insertWorkoutPlanSchema = createInsertSchema(workoutPlans).pick({
   name: true,
   plan: true,
   isAiGenerated: true,
-  isActive: true,
 });
 
 export const insertWeightLogSchema = z.object({

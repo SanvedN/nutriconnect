@@ -169,10 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/diet/plans", requireAuth, async (req, res) => {
     try {
-      const validated = insertDietPlanSchema.parse({
-        ...req.body,
-        isActive: req.body.isActive || false
-      });
+      const validated = insertDietPlanSchema.parse(req.body);
       const plan = await storage.createDietPlan(req.user!.id, validated);
       res.json(plan);
     } catch (error) {
@@ -183,23 +180,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/diet/plans", requireAuth, async (req, res) => {
     const plans = await storage.getDietPlans(req.user!.id);
     res.json(plans);
-  });
-  
-  app.get("/api/diet/plans/active", requireAuth, async (req, res) => {
-    const activePlan = await storage.getActiveDietPlan(req.user!.id);
-    if (!activePlan) {
-      return res.status(404).json({ message: "No active diet plan found" });
-    }
-    res.json(activePlan);
-  });
-  
-  app.post("/api/diet/plans/:id/activate", requireAuth, async (req, res) => {
-    try {
-      const plan = await storage.setDietPlanActive(req.user!.id, req.params.id);
-      res.json(plan);
-    } catch (error) {
-      res.status(400).json({ message: (error as Error).message });
-    }
   });
   // Workout plan routes
   app.post("/api/workout/generate", requireAuth, async (req, res) => {
@@ -248,10 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/workout/plans", requireAuth, async (req, res) => {
     try {
-      const validated = insertWorkoutPlanSchema.parse({
-        ...req.body,
-        isActive: req.body.isActive || false
-      });
+      const validated = insertWorkoutPlanSchema.parse(req.body);
       const plan = await storage.createWorkoutPlan(req.user!.id, validated);
       res.json(plan);
     } catch (error) {
@@ -262,23 +239,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/workout/plans", requireAuth, async (req, res) => {
     const plans = await storage.getWorkoutPlans(req.user!.id);
     res.json(plans);
-  });
-  
-  app.get("/api/workout/plans/active", requireAuth, async (req, res) => {
-    const activePlan = await storage.getActiveWorkoutPlan(req.user!.id);
-    if (!activePlan) {
-      return res.status(404).json({ message: "No active workout plan found" });
-    }
-    res.json(activePlan);
-  });
-  
-  app.post("/api/workout/plans/:id/activate", requireAuth, async (req, res) => {
-    try {
-      const plan = await storage.setWorkoutPlanActive(req.user!.id, req.params.id);
-      res.json(plan);
-    } catch (error) {
-      res.status(400).json({ message: (error as Error).message });
-    }
   });
 
   // Weight log routes
