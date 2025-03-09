@@ -218,7 +218,7 @@ export default function DietPlanner() {
                         {generatedPlan.title && (
                           <h2 className="text-xl font-bold">{generatedPlan.title}</h2>
                         )}
-                        
+
                         {/* Display days from different possible structures */}
                         {generatedPlan.days && Array.isArray(generatedPlan.days) ? (
                           // Format for array of day objects
@@ -250,41 +250,25 @@ export default function DietPlanner() {
                           Object.entries(generatedPlan.weeklyDietPlan?.days || generatedPlan).map(([day, meals]: [string, any]) => (
                             <div key={day} className="border-b pb-4">
                               <h3 className="font-semibold mb-2 capitalize">{day}</h3>
-                              <div className="grid gap-4">
-                                {typeof meals === 'object' ? (
-                                  Object.entries(meals).map(([meal, details]: [string, any]) => (
-                                    <div key={meal} className="bg-gray-50 p-4 rounded-lg">
-                                      <h4 className="font-medium capitalize mb-2">{meal}</h4>
-                                      {typeof details === 'string' ? (
-                                        <p>{details}</p>
-                                      ) : (
-                                        <pre className="whitespace-pre-wrap text-sm">{JSON.stringify(details, null, 2)}</pre>
-                                      )}
+                              {typeof meals === 'object' ? (
+                                <div className="grid gap-4">
+                                  {Object.entries(meals).map(([mealName, mealDetails]: [string, any], mIdx: number) => (
+                                    <div key={mIdx} className="bg-gray-50 p-4 rounded-lg">
+                                      <h4 className="font-medium capitalize mb-2">{mealName}</h4>
+                                      <p>{typeof mealDetails === 'string' ? 
+                                        mealDetails : 
+                                        JSON.stringify(mealDetails, null, 2)}
+                                      </p>
                                     </div>
-                                  ))
-                                ) : (
-                                  <div className="bg-gray-50 p-4 rounded-lg">
-                                    <p>{typeof meals === 'string' ? meals : JSON.stringify(meals)}</p>
-                                  </div>
-                                )}
-                              </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p>{typeof meals === 'string' ? meals : JSON.stringify(meals, null, 2)}</p>
+                              )}
                             </div>
                           ))
                         )}
                       </>
-                    )}
-                                <p className="text-sm text-gray-600">
-                                  {typeof details === 'string' 
-                                    ? details 
-                                    : typeof details === 'object' 
-                                      ? JSON.stringify(details) 
-                                      : String(details)}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))
                     )}
                   </div>
                 </CardContent>
