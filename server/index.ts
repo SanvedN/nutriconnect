@@ -1,7 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { connect as connectMongoDB, database } from "./db";
 
 const app = express();
 app.use(express.json());
@@ -38,25 +37,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint
+// Health check endpoint - Simplified to a basic check
 app.get("/api/health", async (_req, res) => {
-  try {
-    await database?.command({ ping: 1 });
-    res.json({ status: "ok", mongo: "connected" });
-  } catch (error) {
-    console.error("Health check failed:", error);
-    res.status(500).json({
-      status: "error",
-      mongo: "disconnected",
-      error: error?.message || "Unknown error"
-    });
-  }
+  res.json({ status: "ok" });
 });
 
-// Start server immediately while attempting MongoDB connection
 (async () => {
   try {
-    // Start server setup
     const server = await registerRoutes(app);
 
     // Error handling middleware
@@ -73,7 +60,6 @@ app.get("/api/health", async (_req, res) => {
       serveStatic(app);
     }
 
-    // Start listening
     const port = 5000;
     server.listen({
       port,
@@ -81,16 +67,6 @@ app.get("/api/health", async (_req, res) => {
       reusePort: true,
     }, () => {
       log(`Server started on port ${port}`);
-
-      // Attempt MongoDB connection after server is running
-      connectMongoDB()
-        .then(() => {
-          log("MongoDB connected successfully");
-        })
-        .catch((error) => {
-          console.error("Failed to connect to MongoDB:", error);
-          // Don't exit process, let server keep running
-        });
     });
   } catch (error) {
     console.error("Failed to start server:", error);

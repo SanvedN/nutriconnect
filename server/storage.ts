@@ -1,14 +1,9 @@
 import { MongoClient, ObjectId } from 'mongodb';
 import { InsertUser, User, DietPlan, WorkoutPlan, WeightLog, Post, Comment, Like } from "@shared/schema";
 import session from "express-session";
-import MongoStore from 'connect-mongo';
+import createMemoryStore from "memorystore";
 
-if (!process.env.MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable');
-}
-
-const client = new MongoClient(process.env.MONGODB_URI);
-const database = client.db('fitness-app');
+const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
   // User operations
@@ -56,360 +51,195 @@ export interface IStorage {
   sessionStore: session.Store;
 }
 
-export class MongoStorage implements IStorage {
-  private users;
-  private dietPlans;
-  private workoutPlans;
-  private weightLogs;
-  private posts;
-  private comments;
-  private likes;
+export class MemStorage implements IStorage {
+  private users: Map<string, User> = new Map();
+  private dietPlans: Map<string, DietPlan> = new Map();
+  private workoutPlans: Map<string, WorkoutPlan> = new Map();
+  private weightLogs: Map<string, WeightLog> = new Map();
+  private posts: Map<string, Post> = new Map();
+  private comments: Map<string, Comment> = new Map();
+  private likes: Map<string, Like> = new Map();
+  private resetTokens: Map<string, { userId: string; expiry: Date }> = new Map();
   sessionStore: session.Store;
 
   constructor() {
-    try {
-      this.users = database.collection('users');
-      this.dietPlans = database.collection('dietPlans');
-      this.workoutPlans = database.collection('workoutPlans');
-      this.weightLogs = database.collection('weightLogs');
-      this.posts = database.collection('posts');
-      this.comments = database.collection('comments');
-      this.likes = database.collection('likes');
-
-      this.sessionStore = MongoStore.create({
-        client: client,
-        dbName: 'fitness-app',
-        ttl: 14 * 24 * 60 * 60 // 14 days
-      });
-
-      console.log('MongoDB collections initialized successfully');
-    } catch (error) {
-      console.error('Error initializing MongoDB collections:', error);
-      throw error;
-    }
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // prune expired entries every 24h
+    });
   }
 
-  private transformUser(dbUser: any): User {
-    try {
-      if (!dbUser) {
-        console.error('transformUser received null/undefined user');
-        return null;
-      }
-      const { _id, ...rest } = dbUser;
-      return { id: _id.toString(), ...rest };
-    } catch (error) {
-      console.error('Error transforming user:', error);
-      throw error;
-    }
+  private generateId(): string {
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    try {
-      console.log('Attempting to find user by id:', id);
-      const user = await this.users.findOne({ _id: new ObjectId(id) });
-      console.log('Found user:', user ? 'yes' : 'no');
-      return user ? this.transformUser(user) : undefined;
-    } catch (error) {
-      console.error('Error getting user by id:', error);
-      throw error;
-    }
+    return this.users.get(id);
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    try {
-      console.log('Attempting to find user by username:', username);
-      const user = await this.users.findOne({ username });
-      console.log('Found user:', user ? 'yes' : 'no');
-      return user ? this.transformUser(user) : undefined;
-    } catch (error) {
-      console.error('Error getting user by username:', error);
-      throw error;
-    }
+    return Array.from(this.users.values()).find(user => user.username === username);
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    try {
-      console.log('Attempting to find user by email:', email);
-      const user = await this.users.findOne({ email });
-      console.log('Found user:', user ? 'yes' : 'no');
-      return user ? this.transformUser(user) : undefined;
-    } catch (error) {
-      console.error('Error getting user by email:', error);
-      throw error;
-    }
+    return Array.from(this.users.values()).find(user => user.email === email);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    try {
-      console.log('Attempting to create user with data:', { ...insertUser, password: '[REDACTED]' });
-      const result = await this.users.insertOne(insertUser);
-      console.log('User created with _id:', result.insertedId);
-      return this.transformUser({ _id: result.insertedId, ...insertUser });
-    } catch (error) {
-      console.error('Error creating user:', error);
-      throw error;
-    }
+    const id = this.generateId();
+    const user = { id, ...insertUser };
+    this.users.set(id, user);
+    return user;
   }
 
   async updateUser(id: string, data: Partial<User>): Promise<User> {
-    try {
-      const result = await this.users.findOneAndUpdate(
-        { _id: new ObjectId(id) },
-        { $set: data },
-        { returnDocument: 'after' }
-      );
-      return this.transformUser(result.value);
-    } catch (error) {
-      console.error('Error updating user:', error);
-      throw error;
-    }
+    const user = await this.getUser(id);
+    if (!user) throw new Error('User not found');
+
+    const updatedUser = { ...user, ...data };
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
 
   async updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
-    try {
-      await this.users.updateOne(
-        { _id: new ObjectId(userId) },
-        { $set: { password: hashedPassword } }
-      );
-    } catch (error) {
-      console.error('Error updating user password:', error);
-      throw error;
-    }
+    const user = await this.getUser(userId);
+    if (!user) throw new Error('User not found');
+
+    user.password = hashedPassword;
+    this.users.set(userId, user);
   }
 
   async saveResetToken(userId: string, token: string, expiry: Date): Promise<void> {
-    try {
-      await this.users.updateOne(
-        { _id: new ObjectId(userId) },
-        { $set: { resetToken: token, resetTokenExpiry: expiry } }
-      );
-    } catch (error) {
-      console.error('Error saving reset token:', error);
-      throw error;
-    }
+    this.resetTokens.set(token, { userId, expiry });
   }
 
   async getResetToken(token: string): Promise<{ userId: string; expiry: Date } | undefined> {
-    try {
-      const user = await this.users.findOne({ resetToken: token });
-      if (!user || !user.resetTokenExpiry) return undefined;
-      return {
-        userId: user._id.toString(),
-        expiry: new Date(user.resetTokenExpiry)
-      };
-    } catch (error) {
-      console.error('Error getting reset token:', error);
-      throw error;
-    }
+    return this.resetTokens.get(token);
   }
 
   async deleteResetToken(token: string): Promise<void> {
-    try {
-      await this.users.updateOne(
-        { resetToken: token },
-        { $unset: { resetToken: 1, resetTokenExpiry: 1 } }
-      );
-    } catch (error) {
-      console.error('Error deleting reset token:', error);
-      throw error;
-    }
+    this.resetTokens.delete(token);
   }
 
-
   async createDietPlan(userId: string, plan: Omit<DietPlan, "id" | "userId">): Promise<DietPlan> {
-    try {
-      const result = await this.dietPlans.insertOne({...plan, userId});
-      return {...plan, userId, id: result.insertedId.toString()};
-    } catch (error) {
-      console.error('Error creating diet plan:', error);
-      throw error;
-    }
+    const id = this.generateId();
+    const dietPlan = { id, userId, ...plan };
+    this.dietPlans.set(id, dietPlan);
+    return dietPlan;
   }
 
   async getDietPlans(userId: string): Promise<DietPlan[]> {
-    try {
-      const plans = await this.dietPlans.find({userId}).toArray();
-      return plans.map(p => ({...p, id: p._id.toString()}));
-    } catch (error) {
-      console.error('Error getting diet plans:', error);
-      throw error;
-    }
+    return Array.from(this.dietPlans.values()).filter(plan => plan.userId === userId);
   }
 
   async updateDietPlan(id: string, data: Partial<DietPlan>): Promise<DietPlan> {
-    try {
-      const result = await this.dietPlans.findOneAndUpdate(
-        { _id: new ObjectId(id) },
-        { $set: data },
-        { returnDocument: 'after' }
-      );
-      return {...result.value, id: result.value._id.toString()};
-    } catch (error) {
-      console.error('Error updating diet plan:', error);
-      throw error;
-    }
+    const plan = this.dietPlans.get(id);
+    if (!plan) throw new Error('Diet plan not found');
+
+    const updatedPlan = { ...plan, ...data };
+    this.dietPlans.set(id, updatedPlan);
+    return updatedPlan;
   }
 
   async deleteDietPlan(id: string): Promise<void> {
-    try {
-      await this.dietPlans.deleteOne({ _id: new ObjectId(id) });
-    } catch (error) {
-      console.error('Error deleting diet plan:', error);
-      throw error;
-    }
+    this.dietPlans.delete(id);
   }
 
   async createWorkoutPlan(userId: string, plan: Omit<WorkoutPlan, "id" | "userId">): Promise<WorkoutPlan> {
-    try {
-      const result = await this.workoutPlans.insertOne({...plan, userId});
-      return {...plan, userId, id: result.insertedId.toString()};
-    } catch (error) {
-      console.error('Error creating workout plan:', error);
-      throw error;
-    }
+    const id = this.generateId();
+    const workoutPlan = { id, userId, ...plan };
+    this.workoutPlans.set(id, workoutPlan);
+    return workoutPlan;
   }
 
   async getWorkoutPlans(userId: string): Promise<WorkoutPlan[]> {
-    try {
-      const plans = await this.workoutPlans.find({userId}).toArray();
-      return plans.map(p => ({...p, id: p._id.toString()}));
-    } catch (error) {
-      console.error('Error getting workout plans:', error);
-      throw error;
-    }
+    return Array.from(this.workoutPlans.values()).filter(plan => plan.userId === userId);
   }
 
   async updateWorkoutPlan(id: string, data: Partial<WorkoutPlan>): Promise<WorkoutPlan> {
-    try {
-      const result = await this.workoutPlans.findOneAndUpdate(
-        { _id: new ObjectId(id) },
-        { $set: data },
-        { returnDocument: 'after' }
-      );
-      return {...result.value, id: result.value._id.toString()};
-    } catch (error) {
-      console.error('Error updating workout plan:', error);
-      throw error;
-    }
+    const plan = this.workoutPlans.get(id);
+    if (!plan) throw new Error('Workout plan not found');
+
+    const updatedPlan = { ...plan, ...data };
+    this.workoutPlans.set(id, updatedPlan);
+    return updatedPlan;
   }
 
   async deleteWorkoutPlan(id: string): Promise<void> {
-    try {
-      await this.workoutPlans.deleteOne({ _id: new ObjectId(id) });
-    } catch (error) {
-      console.error('Error deleting workout plan:', error);
-      throw error;
-    }
+    this.workoutPlans.delete(id);
   }
 
   async createWeightLog(userId: string, log: Omit<WeightLog, "id" | "userId">): Promise<WeightLog> {
-    try {
-      const result = await this.weightLogs.insertOne({...log, userId});
-      return {...log, userId, id: result.insertedId.toString()};
-    } catch (error) {
-      console.error('Error creating weight log:', error);
-      throw error;
-    }
+    const id = this.generateId();
+    const weightLog = { id, userId, ...log };
+    this.weightLogs.set(id, weightLog);
+    return weightLog;
   }
 
   async getWeightLogs(userId: string): Promise<WeightLog[]> {
-    try {
-      const logs = await this.weightLogs.find({userId}).toArray();
-      return logs.map(l => ({...l, id: l._id.toString()})).sort((a, b) => b.date.getTime() - a.date.getTime());
-    } catch (error) {
-      console.error('Error getting weight logs:', error);
-      throw error;
-    }
+    return Array.from(this.weightLogs.values())
+      .filter(log => log.userId === userId)
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
   }
 
   async createPost(userId: string, post: Omit<Post, "id" | "userId" | "createdAt">): Promise<Post> {
-    try {
-      const result = await this.posts.insertOne({...post, userId, createdAt: new Date()});
-      return {...post, userId, id: result.insertedId.toString(), createdAt: new Date()};
-    } catch (error) {
-      console.error('Error creating post:', error);
-      throw error;
-    }
+    const id = this.generateId();
+    const newPost = { id, userId, ...post, createdAt: new Date() };
+    this.posts.set(id, newPost);
+    return newPost;
   }
 
   async getPosts(): Promise<Post[]> {
-    try {
-      const posts = await this.posts.find({}).toArray();
-      return posts.map(p => ({...p, id: p._id.toString()})).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    } catch (error) {
-      console.error('Error getting posts:', error);
-      throw error;
-    }
+    return Array.from(this.posts.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async deletePost(id: string): Promise<void> {
-    try {
-      await this.posts.deleteOne({ _id: new ObjectId(id) });
-      await this.comments.deleteMany({ postId: id });
-      await this.likes.deleteMany({ postId: id });
-    } catch (error) {
-      console.error('Error deleting post:', error);
-      throw error;
-    }
+    this.posts.delete(id);
+    // Delete associated comments and likes
+    Array.from(this.comments.entries())
+      .filter(([_, comment]) => comment.postId === id)
+      .forEach(([commentId]) => this.comments.delete(commentId));
+    Array.from(this.likes.entries())
+      .filter(([_, like]) => like.postId === id)
+      .forEach(([likeId]) => this.likes.delete(likeId));
   }
 
   async createComment(userId: string, postId: string, comment: Omit<Comment, "id" | "userId" | "postId" | "createdAt">): Promise<Comment> {
-    try {
-      const result = await this.comments.insertOne({...comment, userId, postId, createdAt: new Date()});
-      return {...comment, userId, postId, id: result.insertedId.toString(), createdAt: new Date()};
-    } catch (error) {
-      console.error('Error creating comment:', error);
-      throw error;
-    }
+    const id = this.generateId();
+    const newComment = { id, userId, postId, ...comment, createdAt: new Date() };
+    this.comments.set(id, newComment);
+    return newComment;
   }
 
   async getComments(postId: string): Promise<Comment[]> {
-    try {
-      const comments = await this.comments.find({postId}).toArray();
-      return comments.map(c => ({...c, id: c._id.toString()})).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    } catch (error) {
-      console.error('Error getting comments:', error);
-      throw error;
-    }
+    return Array.from(this.comments.values())
+      .filter(comment => comment.postId === postId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async deleteComment(id: string): Promise<void> {
-    try {
-      await this.comments.deleteOne({ _id: new ObjectId(id) });
-    } catch (error) {
-      console.error('Error deleting comment:', error);
-      throw error;
-    }
+    this.comments.delete(id);
   }
 
   async createLike(userId: string, postId: string): Promise<Like> {
-    try {
-      const result = await this.likes.insertOne({userId, postId, createdAt: new Date()});
-      return {userId, postId, id: result.insertedId.toString(), createdAt: new Date()};
-    } catch (error) {
-      console.error('Error creating like:', error);
-      throw error;
-    }
+    const id = this.generateId();
+    const like = { id, userId, postId, createdAt: new Date() };
+    this.likes.set(id, like);
+    return like;
   }
 
   async deleteLike(userId: string, postId: string): Promise<void> {
-    try {
-      await this.likes.deleteOne({ userId, postId });
-    } catch (error) {
-      console.error('Error deleting like:', error);
-      throw error;
+    const likeToDelete = Array.from(this.likes.entries())
+      .find(([_, like]) => like.userId === userId && like.postId === postId);
+    if (likeToDelete) {
+      this.likes.delete(likeToDelete[0]);
     }
   }
 
   async getLikes(postId: string): Promise<Like[]> {
-    try {
-      const likes = await this.likes.find({postId}).toArray();
-      return likes.map(l => ({...l, id: l._id.toString()}));
-    } catch (error) {
-      console.error('Error getting likes:', error);
-      throw error;
-    }
+    return Array.from(this.likes.values())
+      .filter(like => like.postId === postId);
   }
 }
 
-export const storage = new MongoStorage();
+export const storage = new MemStorage();
