@@ -241,7 +241,12 @@ export class MemStorage implements IStorage {
   async getWeightLogs(userId: string): Promise<WeightLog[]> {
     return Array.from(this.weightLogs.values())
       .filter(log => log.userId === userId)
-      .sort((a, b) => b.date.getTime() - a.date.getTime());
+      .sort((a, b) => {
+        // First compare by date (newest first)
+        const dateComparison = b.date.getTime() - a.date.getTime();
+        // If dates are the same, use the ID (which is based on creation time)
+        return dateComparison === 0 ? b.id.localeCompare(a.id) : dateComparison;
+      });
   }
 
   async createPost(userId: string, post: Omit<Post, "id" | "userId" | "createdAt">): Promise<Post> {

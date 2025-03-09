@@ -208,6 +208,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/workout/generate", requireAuth, async (req, res) => {
+    try {
+      const { equipment, goals, level } = req.body;
+      const prompt = `Generate a weekly workout plan with available equipment: ${equipment}, goals: ${goals}, and fitness level: ${level}. Include exercises, sets, reps and rest periods. Format as valid JSON without any additional text.`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+
+      let planText = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (!planText) throw new Error("AI response is empty or malformed");
+
+      // Remove any code block formatting
+      planText = planText.replace(/^```json\n?|```$/g, "").trim();
+      planText = planText.replace(/^```\n?|```$/g, "").trim();
+
+      // Extract JSON if embedded in text
+      const jsonMatch = planText.match(/(\{.*\})/s);
+      if (jsonMatch && jsonMatch[0]) {
+        planText = jsonMatch[0];
+      }
+
+      // Parse JSON safely
+      let plan;
+      try {
+        plan = JSON.parse(planText);
+      } catch (jsonError) {
+        console.error("JSON Parsing Error:", jsonError, "Text:", planText);
+        // Provide a fallback structured response
+        plan = {
+          title: "Weekly Workout Plan (AI response parsing failed)",
+          message: "Please try again with more specific parameters",
+          days: [
+            { day: "Example", exercises: ["Please try generating again"] }
+          ]
+        };
+      }
+
+      res.json({ plan });
+    } catch (error) {
+      console.error("Workout plan generation error:", error);
+      res.status(500).json({ message: "Failed to generate workout plan", error: error.message });
+    }
+  });
+
   app.patch("/api/workout/plans/:id/activate", requireAuth, async (req, res) => {
     try {
       const plan = await storage.activateWorkoutPlan(req.params.id);

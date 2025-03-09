@@ -91,7 +91,8 @@ export default function WeightLog() {
     ?.map((log: any) => ({
       date: format(new Date(log.date), "MMM d"),
       weight: log.weight,
-    }));
+    }))
+    ?.reverse(); // Reverse to show latest on the right
 
   return (
     <div className="min-h-screen bg-background">
