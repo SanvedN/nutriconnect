@@ -18,12 +18,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
-const authSchema = z.object({
+const loginSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-type AuthFormData = z.infer<typeof authSchema>;
+const registerSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
@@ -55,7 +62,7 @@ export default function AuthPage() {
                 <AuthForm
                   mode="login"
                   isLoading={loginMutation.isPending}
-                  onSubmit={(data) => loginMutation.mutate(data)}
+                  onSubmit={(data) => loginMutation.mutate(data as LoginFormData)}
                 />
               </TabsContent>
 
@@ -63,7 +70,7 @@ export default function AuthPage() {
                 <AuthForm
                   mode="register"
                   isLoading={registerMutation.isPending}
-                  onSubmit={(data) => registerMutation.mutate(data)}
+                  onSubmit={(data) => registerMutation.mutate(data as RegisterFormData)}
                 />
               </TabsContent>
             </Tabs>
@@ -130,14 +137,16 @@ function AuthForm({
 }: {
   mode: "login" | "register";
   isLoading: boolean;
-  onSubmit: (data: AuthFormData) => void;
+  onSubmit: (data: LoginFormData | RegisterFormData) => void;
 }) {
-  const form = useForm<AuthFormData>({
-    resolver: zodResolver(authSchema),
-    defaultValues: {
-      username: "",
-      password: "",
-    },
+  const schema = mode === "login" ? loginSchema : registerSchema;
+  const defaultValues = mode === "login" 
+    ? { username: "", password: "" }
+    : { username: "", email: "", password: "" };
+
+  const form = useForm({
+    resolver: zodResolver(schema),
+    defaultValues,
   });
 
   return (
@@ -156,6 +165,22 @@ function AuthForm({
             </FormItem>
           )}
         />
+
+        {mode === "register" && (
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input type="email" placeholder="Enter email" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <FormField
           control={form.control}
