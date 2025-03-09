@@ -122,7 +122,7 @@ export default function Community() {
 
   const deletePostMutation = useMutation({
     mutationFn: async (postId: string) => {
-      await apiRequest("DELETE", `/api/posts/${postId}`);
+      await apiRequest("DELETE", /api/posts/${postId});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
@@ -135,7 +135,7 @@ export default function Community() {
 
   const createCommentMutation = useMutation({
     mutationFn: async ({ postId, data }: { postId: string; data: z.infer<typeof commentSchema> }) => {
-      const res = await apiRequest("POST", `/api/posts/${postId}/comments`, data);
+      const res = await apiRequest("POST", /api/posts/${postId}/comments, data);
       return res.json();
     },
     onSuccess: () => {
@@ -147,9 +147,9 @@ export default function Community() {
   const toggleLikeMutation = useMutation({
     mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
       if (isLiked) {
-        await apiRequest("DELETE", `/api/posts/${postId}/likes`);
+        await apiRequest("DELETE", /api/posts/${postId}/likes);
       } else {
-        await apiRequest("POST", `/api/posts/${postId}/likes`);
+        await apiRequest("POST", /api/posts/${postId}/likes);
       }
     },
     onSuccess: () => {
@@ -263,11 +263,11 @@ export default function Community() {
                         disabled={toggleLikeMutation.isPending}
                       >
                         <Heart
-                          className={`h-4 w-4 mr-1 ${
+                          className={h-4 w-4 mr-1 ${
                             likes.some((like) => like.userId === user?.id)
                               ? "fill-red-500 text-red-500"
                               : "text-gray-500"
-                          }`}
+                          }}
                         />
                         {likes.length}
                       </Button>
