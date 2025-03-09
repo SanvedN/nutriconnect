@@ -68,8 +68,6 @@ type Like = {
 export default function Community() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedPost, setSelectedPost] = useState<string | null>(null);
-
   const form = useForm({
     resolver: zodResolver(postSchema),
     defaultValues: {
@@ -77,25 +75,8 @@ export default function Community() {
     },
   });
 
-  const commentForm = useForm({
-    resolver: zodResolver(commentSchema),
-    defaultValues: {
-      content: "",
-    },
-  });
-
   const { data: posts = [], isLoading: isLoadingPosts } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
-  });
-
-  const { data: comments = [], isLoading: isLoadingComments } = useQuery<Comment[]>({
-    queryKey: [`/api/posts/${selectedPost}/comments`],
-    enabled: selectedPost !== null,
-  });
-
-  const { data: likes = [], isLoading: isLoadingLikes } = useQuery<Like[]>({
-    queryKey: [`/api/posts/${selectedPost}/likes`],
-    enabled: selectedPost !== null,
   });
 
   const createPostMutation = useMutation({
@@ -133,17 +114,6 @@ export default function Community() {
     },
   });
 
-  const createCommentMutation = useMutation({
-    mutationFn: async ({ postId, data }: { postId: string; data: z.infer<typeof commentSchema> }) => {
-      const res = await apiRequest("POST", `/api/posts/${postId}/comments`, data);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts", selectedPost, "comments"] });
-      commentForm.reset();
-    },
-  });
-
   const toggleLikeMutation = useMutation({
     mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
       if (isLiked) {
@@ -153,18 +123,12 @@ export default function Community() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts", selectedPost, "likes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
     },
   });
 
   function onSubmitPost(data: z.infer<typeof postSchema>) {
     createPostMutation.mutate(data);
-  }
-
-  function onSubmitComment(data: z.infer<typeof commentSchema>) {
-    if (selectedPost) {
-      createCommentMutation.mutate({ postId: selectedPost, data });
-    }
   }
 
   return (
@@ -252,42 +216,24 @@ export default function Community() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          // Use a query to get the current post's likes
-                          const postLikes = Array.isArray(likes) && selectedPost === post.id 
-                            ? likes 
-                            : [];
-                          
-                          const isLiked = postLikes.some(
-                            (like) => like.userId === user?.id
-                          );
-                          
                           toggleLikeMutation.mutate({
                             postId: post.id,
-                            isLiked,
+                            isLiked: post._userHasLiked,
                           });
                         }}
                         disabled={toggleLikeMutation.isPending}
                       >
                         <Heart
                           className={`h-4 w-4 mr-1 ${
-                            Array.isArray(likes) && selectedPost === post.id && 
-                            likes.some((like) => like.userId === user?.id)
+                            post._userHasLiked
                               ? "fill-red-500 text-red-500"
                               : "text-gray-500"
                           }`}
                         />
-                        {/* Show like count appropriately */}
                         {post._likeCount || 0}
                       </Button>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedPost(post.id)}
-                      >
-                        <MessageCircle className="h-4 w-4 mr-1 text-gray-500" />
-                        {post._commentCount || 0}
-                      </Button>
+                      {/* Comments section removed */}
                     </div>
                   </CardContent>
                 </Card>
@@ -304,75 +250,7 @@ export default function Community() {
             </Card>
           )}
 
-          <Dialog open={selectedPost !== null} onOpenChange={() => setSelectedPost(null)}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Comments</DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                {isLoadingComments ? (
-                  <div className="flex justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-green-600" />
-                  </div>
-                ) : comments.length > 0 ? (
-                  comments.map((comment) => (
-                    <div
-                      key={comment.id}
-                      className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg"
-                    >
-                      <div className="w-full">
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="font-medium">{comment.username || 'User'}</p>
-                          <p className="text-sm text-gray-500">
-                            {format(new Date(comment.createdAt), "MMM d, yyyy")}
-                          </p>
-                        </div>
-                        <p className="mt-2">{comment.content}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-center text-gray-500 py-4">
-                    No comments yet. Start the conversation!
-                  </p>
-                )}
-
-                <Form {...commentForm}>
-                  <form
-                    onSubmit={commentForm.handleSubmit(onSubmitComment)}
-                    className="flex gap-2"
-                  >
-                    <FormField
-                      control={commentForm.control}
-                      name="content"
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormControl>
-                            <Textarea
-                              placeholder="Write a comment..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button
-                      type="submit"
-                      disabled={createCommentMutation.isPending}
-                    >
-                      {createCommentMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </form>
-                </Form>
-              </div>
-            </DialogContent>
-          </Dialog>
+          {/* Comments dialog removed */}
         </motion.div>
       </main>
     </div>

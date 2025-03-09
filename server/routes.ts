@@ -334,17 +334,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const posts = await storage.getPosts();
       
-      // Enhance posts with likes and comments counts and username
+      // Enhance posts with likes count, username, and if current user has liked
       const enhancedPosts = await Promise.all(
         posts.map(async (post) => {
           const likes = await storage.getLikes(post.id);
-          const comments = await storage.getComments(post.id);
           const postUser = await storage.getUser(post.userId);
+          const userHasLiked = likes.some(like => like.userId === req.user!.id);
           
           return {
             ...post,
             _likeCount: likes.length,
-            _commentCount: comments.length,
+            _userHasLiked: userHasLiked,
             username: postUser?.username || 'Unknown user'
           };
         })
@@ -358,7 +358,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/posts/:id", requireAuth, async (req, res) => {
     try {
-      await storage.deletePost(parseInt(req.params.id));
+      // First check if the user owns the post
+      const posts = await storage.getPosts();
+      const post = posts.find(p => p.id === req.params.id);
+      
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+      
+      if (post.userId !== req.user!.id) {
+        return res.status(403).json({ message: "You can only delete your own posts" });
+      }
+      
+      await storage.deletePost(req.params.id);
       res.sendStatus(200);
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });

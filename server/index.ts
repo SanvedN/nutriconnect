@@ -44,6 +44,20 @@ app.get("/api/health", async (_req, res) => {
 
 (async () => {
   try {
+    // Initialize MongoDB connection
+    if (process.env.MONGODB_URI) {
+      try {
+        const { getMongoClient } = await import('./storage');
+        await getMongoClient();
+        console.log("MongoDB initialized");
+      } catch (error) {
+        console.error("Failed to initialize MongoDB:", error);
+        console.log("Falling back to memory storage");
+      }
+    } else {
+      console.log("MONGODB_URI not found, using memory storage");
+    }
+    
     const server = await registerRoutes(app);
 
     // Error handling middleware
