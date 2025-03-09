@@ -254,8 +254,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/workout/plans/:id/activate", requireAuth, async (req, res) => {
     try {
+      // First deactivate any currently active plan
+      await storage.deactivateAllWorkoutPlans(req.user!.id);
+
+      // Then activate the selected plan
       const plan = await storage.activateWorkoutPlan(req.params.id);
       res.json(plan);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+
+  app.delete("/api/workout/plans/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteWorkoutPlan(req.params.id);
+      res.sendStatus(200);
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });
     }

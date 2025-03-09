@@ -26,15 +26,61 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Dumbbell, Save, Trash } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { motion } from "framer-motion";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import DashboardNav from "@/components/dashboard-nav";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Plus, Save, Trash, Check } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+
 const workoutFormSchema = z.object({
   equipment: z.string(),
   goals: z.string(),
   level: z.string(),
 });
 
+type WorkoutPlan = {
+  id: string;
+  name: string;
+  plan: any;
+  isAiGenerated: boolean;
+  isActive?: boolean;
+  createdAt: string;
+};
+
 export default function WorkoutPlanner() {
   const { toast } = useToast();
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<WorkoutPlan | null>(null);
 
   const form = useForm({
     resolver: zodResolver(workoutFormSchema),
@@ -45,7 +91,7 @@ export default function WorkoutPlanner() {
     },
   });
 
-  const { data: workoutPlans = [], isLoading: isLoadingPlans } = useQuery({
+  const { data: workoutPlans = [], isLoading: isLoadingPlans } = useQuery<WorkoutPlan[]>({
     queryKey: ["/api/workout/plans"],
   });
 
@@ -73,7 +119,7 @@ export default function WorkoutPlanner() {
   const savePlanMutation = useMutation({
     mutationFn: async (plan: any) => {
       const res = await apiRequest("POST", "/api/workout/plans", {
-        name: "Custom Workout Plan",
+        name: `Workout Plan - ${new Date().toLocaleDateString()}`,
         plan,
         isAiGenerated: true,
       });
@@ -88,8 +134,21 @@ export default function WorkoutPlanner() {
     },
   });
 
+  const setActiveMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      await apiRequest("PATCH", `/api/workout/plans/${planId}/activate`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workout/plans"] });
+      toast({
+        title: "Plan activated",
+        description: "This is now your active workout plan",
+      });
+    },
+  });
+
   const deletePlanMutation = useMutation({
-    mutationFn: async (planId: number) => {
+    mutationFn: async (planId: string) => {
       await apiRequest("DELETE", `/api/workout/plans/${planId}`);
     },
     onSuccess: () => {
@@ -103,6 +162,58 @@ export default function WorkoutPlanner() {
 
   function onSubmit(data: z.infer<typeof workoutFormSchema>) {
     generateMutation.mutate(data);
+  }
+
+  function formatPlanDisplay(plan: any) {
+    if (!plan) return null;
+
+    // Handle different plan structures
+    const days = plan.days || plan.workoutPlan?.days || plan;
+
+    if (Array.isArray(days)) {
+      return days.map((day, index) => (
+        <div key={index} className="border-b pb-4 last:border-0">
+          <h3 className="font-semibold mb-2 capitalize">{day.day || `Day ${index + 1}`}</h3>
+          {Array.isArray(day.exercises) ? (
+            <div className="space-y-3">
+              {day.exercises.map((exercise: any, exIndex: number) => (
+                <div key={exIndex} className="bg-gray-50 p-3 rounded-lg">
+                  {typeof exercise === 'string' ? (
+                    <p>{exercise}</p>
+                  ) : (
+                    <>
+                      <h4 className="font-medium">{exercise.name || 'Exercise'}</h4>
+                      <p className="text-gray-600">{exercise.description || JSON.stringify(exercise)}</p>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <pre className="bg-gray-50 p-3 rounded-lg overflow-x-auto">
+              {JSON.stringify(day, null, 2)}
+            </pre>
+          )}
+        </div>
+      ));
+    }
+
+    // Handle object structure
+    return Object.entries(days).map(([day, exercises]) => (
+      <div key={day} className="border-b pb-4 last:border-0">
+        <h3 className="font-semibold mb-2 capitalize">{day}</h3>
+        <div className="space-y-3">
+          {Object.entries(exercises as any).map(([exName, details], idx) => (
+            <div key={idx} className="bg-gray-50 p-3 rounded-lg">
+              <h4 className="font-medium capitalize">{exName}</h4>
+              <p className="text-gray-600">
+                {typeof details === 'string' ? details : JSON.stringify(details, null, 2)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    ));
   }
 
   return (
@@ -324,25 +435,51 @@ export default function WorkoutPlanner() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {workoutPlans.map((plan: any) => (
+                  {workoutPlans.map((plan) => (
                     <div
                       key={plan.id}
                       className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
                     >
-                      <div>
-                        <p className="font-medium">{plan.name}</p>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{plan.name}</p>
+                          {plan.isActive && (
+                            <Badge variant="secondary" className="text-green-600">
+                              Active
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500">
                           {new Date(plan.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deletePlanMutation.mutate(plan.id)}
-                        disabled={deletePlanMutation.isPending}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedPlan(plan)}
+                        >
+                          View Details
+                        </Button>
+                        {!plan.isActive && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setActiveMutation.mutate(plan.id)}
+                            disabled={setActiveMutation.isPending}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deletePlanMutation.mutate(plan.id)}
+                          disabled={deletePlanMutation.isPending}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -359,6 +496,27 @@ export default function WorkoutPlanner() {
             </Card>
           )}
         </motion.div>
+
+        {/* Plan Details Dialog */}
+        <Dialog open={selectedPlan !== null} onOpenChange={() => setSelectedPlan(null)}>
+          <DialogContent className="max-w-3xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedPlan?.name}
+                {selectedPlan?.isActive && (
+                  <Badge variant="secondary" className="ml-2 text-green-600">
+                    Active Plan
+                  </Badge>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="h-full max-h-[calc(80vh-100px)] pr-4">
+              <div className="space-y-6">
+                {selectedPlan && formatPlanDisplay(selectedPlan.plan)}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
