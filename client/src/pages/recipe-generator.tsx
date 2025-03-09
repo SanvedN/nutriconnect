@@ -28,6 +28,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, CookingPot, Plus, Save } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const recipeFormSchema = z.object({
   name: z.string().min(1, "Recipe name is required"),
@@ -57,6 +63,7 @@ export default function RecipeGenerator() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("generate");
   const [generatedRecipe, setGeneratedRecipe] = useState<any>(null);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
   // Form for AI generation
   const generateForm = useForm({
@@ -486,6 +493,14 @@ export default function RecipeGenerator() {
                           )}
                         </ul>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedRecipe(recipe)}
+                        className="mt-4"
+                      >
+                        View Details
+                      </Button>
                     </CardContent>
                   </Card>
                 ))}
@@ -501,6 +516,58 @@ export default function RecipeGenerator() {
               </Card>
             )}
           </div>
+
+          {/* Recipe Details Dialog */}
+          <Dialog open={selectedRecipe !== null} onOpenChange={() => setSelectedRecipe(null)}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CookingPot className="h-5 w-5" />
+                  {selectedRecipe?.name}
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-semibold mb-2">Ingredients</h3>
+                  <ul className="list-disc list-inside space-y-1">
+                    {selectedRecipe?.ingredients.map((ingredient, index) => (
+                      <li key={index} className="text-gray-600">{ingredient}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Instructions</h3>
+                  <ol className="list-decimal list-inside space-y-2">
+                    {selectedRecipe?.instructions.map((instruction, index) => (
+                      <li key={index} className="text-gray-600">{instruction}</li>
+                    ))}
+                  </ol>
+                </div>
+
+                {selectedRecipe?.nutrition && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-semibold mb-2">Nutritional Information</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {Object.entries(selectedRecipe.nutrition).map(([key, value]) => (
+                        <div key={key}>
+                          <p className="text-sm text-gray-500 capitalize">{key}</p>
+                          <p className="font-medium">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-sm text-gray-500">
+                    Created on {new Date(selectedRecipe?.createdAt || '').toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </motion.div>
       </main>
     </div>
