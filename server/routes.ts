@@ -197,6 +197,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const plans = await storage.getDietPlans(req.user!.id);
     res.json(plans);
   });
+
+  app.delete("/api/diet/plans/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteDietPlan(req.params.id);
+      res.sendStatus(200);
+    } catch (error) {
+      res.status(400).json({ message: (error as Error).message });
+    }
+  });
+  
   // Workout plan routes
   app.post("/api/workout/plans", requireAuth, async (req, res) => {
     try {
