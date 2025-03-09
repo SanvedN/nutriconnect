@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import mongoose from "mongoose"; // Required for MongoDB connections
+import { MONGODB_URI } from "./config"; // Ensure your MongoDB URI is in this file
 
 const app = express();
 app.use(express.json());
@@ -37,28 +39,31 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint - Simplified to a basic check
+// Health check endpoint
 app.get("/api/health", async (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// MongoDB Connection
+const connectDB = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      appName: "main",
+    });
+    console.log("MongoDB Connected...");
+  } catch (error) {
+    console.error("MongoDB connection error:", error.message);
+    process.exit(1);
+  }
+};
+
 (async () => {
   try {
-    // Initialize MongoDB connection
-    if (process.env.MONGODB_URI) {
-      try {
-        // Direct import of storage to avoid dynamic import issues
-        const storage = require('./storage');
-        await storage.initMongoDB();
-        console.log("MongoDB initialized");
-      } catch (error) {
-        console.error("Failed to initialize MongoDB:", error);
-        console.log("Falling back to memory storage");
-      }
-    } else {
-      console.log("MONGODB_URI not found, using memory storage");
-    }
-    
+    await connectDB(); // Connect to MongoDB at server startup
+
     const server = await registerRoutes(app);
 
     // Error handling middleware
@@ -76,13 +81,16 @@ app.get("/api/health", async (_req, res) => {
     }
 
     const port = 5000;
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    }, () => {
-      log(`Server started on port ${port}`);
-    });
+    server.listen(
+      {
+        port,
+        host: "0.0.0.0",
+        reusePort: true,
+      },
+      () => {
+        log(`Server started on port ${port}`);
+      }
+    );
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);

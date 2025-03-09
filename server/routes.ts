@@ -10,8 +10,10 @@ import {
   insertCommentSchema,
 } from "@shared/schema";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import dotenv from "dotenv";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+dotenv.config();
+const genAI = new GoogleGenerativeAI("AIzaSyBDMYAX4pPgl0XO9wUwIEatNI3EdgHmYeU");
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -79,8 +81,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             calories: "N/A",
             protein: "N/A",
             carbs: "N/A",
-            fat: "N/A"
-          }
+            fat: "N/A",
+          },
         };
       }
 
@@ -131,7 +133,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await model.generateContent(prompt);
       const response = await result.response;
 
-      let planText = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      let planText =
+        response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (!planText) throw new Error("AI response is empty or malformed");
 
       // Remove any code block formatting
@@ -154,16 +157,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         plan = {
           title: "Weekly Diet Plan (AI response parsing failed)",
           message: "Please try again with more specific dietary preferences",
-          days: [
-            { day: "Example", meals: ["Please try generating again"] }
-          ]
+          days: [{ day: "Example", meals: ["Please try generating again"] }],
         };
       }
 
       res.json({ plan });
     } catch (error) {
       console.error("Diet plan generation error:", error);
-      res.status(500).json({ message: "Failed to generate diet plan", error: error.message });
+      res.status(500).json({
+        message: "Failed to generate diet plan",
+        error: error.message,
+      });
     }
   });
 
@@ -185,7 +189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = insertDietPlanSchema.parse(req.body);
       const plan = await storage.createDietPlan(req.user!.id, {
         ...validated,
-        isActive: false // Ensure new plans are not active by default
+        isActive: false, // Ensure new plans are not active by default
       });
       res.json(plan);
     } catch (error) {
@@ -206,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(400).json({ message: (error as Error).message });
     }
   });
-  
+
   app.delete("/api/workout/plans/:id", requireAuth, async (req, res) => {
     try {
       await storage.deleteWorkoutPlan(req.params.id);
@@ -215,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(400).json({ message: (error as Error).message });
     }
   });
-  
+
   // Workout plan routes
   app.post("/api/workout/plans", requireAuth, async (req, res) => {
     try {
@@ -235,7 +239,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await model.generateContent(prompt);
       const response = await result.response;
 
-      let planText = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      let planText =
+        response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (!planText) throw new Error("AI response is empty or malformed");
 
       // Remove any code block formatting
@@ -259,30 +264,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title: "Weekly Workout Plan (AI response parsing failed)",
           message: "Please try again with more specific parameters",
           days: [
-            { day: "Example", exercises: ["Please try generating again"] }
-          ]
+            { day: "Example", exercises: ["Please try generating again"] },
+          ],
         };
       }
 
       res.json({ plan });
     } catch (error) {
       console.error("Workout plan generation error:", error);
-      res.status(500).json({ message: "Failed to generate workout plan", error: error.message });
+      res.status(500).json({
+        message: "Failed to generate workout plan",
+        error: error.message,
+      });
     }
   });
 
-  app.patch("/api/workout/plans/:id/activate", requireAuth, async (req, res) => {
-    try {
-      // First deactivate any currently active plan
-      await storage.deactivateAllWorkoutPlans(req.user!.id);
+  app.patch(
+    "/api/workout/plans/:id/activate",
+    requireAuth,
+    async (req, res) => {
+      try {
+        // First deactivate any currently active plan
+        await storage.deactivateAllWorkoutPlans(req.user!.id);
 
-      // Then activate the selected plan
-      const plan = await storage.activateWorkoutPlan(req.params.id);
-      res.json(plan);
-    } catch (error) {
-      res.status(400).json({ message: (error as Error).message });
+        // Then activate the selected plan
+        const plan = await storage.activateWorkoutPlan(req.params.id);
+        res.json(plan);
+      } catch (error) {
+        res.status(400).json({ message: (error as Error).message });
+      }
     }
-  });
+  );
 
   app.delete("/api/workout/plans/:id", requireAuth, async (req, res) => {
     try {
@@ -304,7 +316,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Ensure we're handling both Date objects and ISO strings
       const weightData = {
         weight: Number(req.body.weight),
-        date: req.body.date instanceof Date ? req.body.date : new Date(req.body.date)
+        date:
+          req.body.date instanceof Date
+            ? req.body.date
+            : new Date(req.body.date),
       };
       const log = await storage.createWeightLog(req.user!.id, weightData);
       res.json(log);
@@ -333,37 +348,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/posts", requireAuth, async (req, res) => {
     try {
       const posts = await storage.getPosts();
-      
+
       // Enhance posts with likes count, username, and if current user has liked
       const enhancedPosts = await Promise.all(
         posts.map(async (post) => {
           let likes = [];
           let postUser = null;
-          
+
           try {
             likes = await storage.getLikes(post.id);
           } catch (err) {
             console.error("Error getting likes for post:", err);
             likes = []; // Set default value if error
           }
-          
+
           try {
             postUser = await storage.getUser(post.userId);
           } catch (err) {
             console.error("Error getting user for post:", err);
           }
-          
-          const userHasLiked = likes.some(like => like.userId === req.user!.id);
-          
+
+          const userHasLiked = likes.some(
+            (like) => like.userId === req.user!.id
+          );
+
           return {
             ...post,
             _likeCount: likes.length,
             _userHasLiked: userHasLiked,
-            username: postUser?.username || 'Unknown user'
+            username: postUser?.username || "Unknown user",
           };
         })
       );
-      
+
       res.json(enhancedPosts);
     } catch (error) {
       console.error("Error getting posts:", error);
@@ -375,16 +392,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // First check if the user owns the post
       const posts = await storage.getPosts();
-      const post = posts.find(p => p.id === req.params.id);
-      
+      const post = posts.find((p) => p.id === req.params.id);
+
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
-      
+
       if (post.userId !== req.user!.id) {
-        return res.status(403).json({ message: "You can only delete your own posts" });
+        return res
+          .status(403)
+          .json({ message: "You can only delete your own posts" });
       }
-      
+
       await storage.deletePost(req.params.id);
       res.sendStatus(200);
     } catch (error) {
@@ -398,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const comment = await storage.createComment(
         req.user!.id,
         parseInt(req.params.postId),
-        validated,
+        validated
       );
       res.json(comment);
     } catch (error) {
@@ -409,18 +428,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/posts/:postId/comments", requireAuth, async (req, res) => {
     try {
       const comments = await storage.getComments(parseInt(req.params.postId));
-      
+
       // Enhance comments with username
       const enhancedComments = await Promise.all(
         comments.map(async (comment) => {
           const commentUser = await storage.getUser(comment.userId);
           return {
             ...comment,
-            username: commentUser?.username || 'Unknown user'
+            username: commentUser?.username || "Unknown user",
           };
         })
       );
-      
+
       res.json(enhancedComments);
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });
@@ -431,7 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const like = await storage.createLike(
         req.user!.id,
-        req.params.postId, // Use string ID directly, matching the format in storage
+        req.params.postId // Use string ID directly, matching the format in storage
       );
       res.json(like);
     } catch (error) {
