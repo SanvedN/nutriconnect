@@ -153,37 +153,115 @@ export default function DietPlanner() {
                   ) : (
                     <>
                       <h4 className="font-medium">{meal.name || 'Meal'}</h4>
-                      <p className="text-gray-600">{meal.description || JSON.stringify(meal)}</p>
+                      {meal.description ? (
+                        <p className="text-gray-600">{meal.description}</p>
+                      ) : meal.foods ? (
+                        <ul className="list-disc pl-5 mt-2 text-gray-600">
+                          {meal.foods.map((food: string, i: number) => (
+                            <li key={i}>{food}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div>
+                          {Object.entries(meal).map(([key, value]) => {
+                            if (key === 'name') return null;
+                            return (
+                              <div key={key} className="mt-1">
+                                <strong className="capitalize">{key}:</strong>{" "}
+                                {typeof value === 'string' ? value : 
+                                 Array.isArray(value) ? (
+                                   <ul className="list-disc pl-5 mt-1">
+                                     {value.map((item: string, i: number) => (
+                                       <li key={i}>{item}</li>
+                                     ))}
+                                   </ul>
+                                 ) : JSON.stringify(value)}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <pre className="bg-gray-50 p-3 rounded-lg overflow-x-auto">
-              {JSON.stringify(day, null, 2)}
-            </pre>
+            <div className="bg-gray-50 p-3 rounded-lg">
+              {Object.entries(day).map(([key, value], idx) => {
+                if (key === 'day') return null;
+                return (
+                  <div key={idx} className="mb-3">
+                    <h4 className="font-medium capitalize">{key}</h4>
+                    {typeof value === 'string' ? (
+                      <p className="text-gray-600">{value}</p>
+                    ) : Array.isArray(value) ? (
+                      <ul className="list-disc pl-5 mt-1 text-gray-600">
+                        {value.map((item: string, i: number) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-600">{JSON.stringify(value)}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       ));
     }
 
-    // Handle object structure
-    return Object.entries(days).map(([day, meals]) => (
-      <div key={day} className="border-b pb-4 last:border-0">
-        <h3 className="font-semibold mb-2 capitalize">{day}</h3>
-        <div className="space-y-3">
-          {Object.entries(meals as any).map(([mealName, details], idx) => (
-            <div key={idx} className="bg-gray-50 p-3 rounded-lg">
-              <h4 className="font-medium capitalize">{mealName}</h4>
-              <p className="text-gray-600">
-                {typeof details === 'string' ? details : JSON.stringify(details, null, 2)}
-              </p>
-            </div>
-          ))}
+    // Handle object structure (days of the week)
+    if (days && typeof days === 'object') {
+      return Object.entries(days).map(([day, meals], dayIndex) => (
+        <div key={dayIndex} className="border-b pb-4 last:border-0">
+          <h3 className="font-semibold mb-2 capitalize">{day}</h3>
+          <div className="space-y-3">
+            {Object.entries(meals as any).map(([mealName, details], idx) => (
+              <div key={idx} className="bg-gray-50 p-3 rounded-lg">
+                <h4 className="font-medium capitalize">{mealName}</h4>
+                {typeof details === 'string' ? (
+                  <p className="text-gray-600">{details}</p>
+                ) : Array.isArray(details) ? (
+                  <ul className="list-disc pl-5 mt-1 text-gray-600">
+                    {details.map((item: string, i: number) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                ) : typeof details === 'object' ? (
+                  <div className="mt-2">
+                    {Object.entries(details as any).map(([subKey, subValue], subIdx) => (
+                      <div key={subIdx} className="mb-1">
+                        <strong className="capitalize">{subKey}:</strong>{" "}
+                        {typeof subValue === 'string' ? subValue : 
+                         Array.isArray(subValue) ? (
+                           <ul className="list-disc pl-5 mt-1">
+                             {subValue.map((item: string, i: number) => (
+                               <li key={i}>{item}</li>
+                             ))}
+                           </ul>
+                         ) : JSON.stringify(subValue)}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-600">{JSON.stringify(details)}</p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
+      ));
+    }
+    
+    // Fallback for any other structure
+    return (
+      <div className="bg-gray-50 p-3 rounded-lg">
+        <p>Plan structure is not recognized. Please check the format.</p>
       </div>
-    ));
+    );
   }
 
   return (

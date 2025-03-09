@@ -141,67 +141,39 @@ export default function WorkoutPlanner() {
   function formatPlanDisplay(plan: any) {
     if (!plan) return null;
 
-    // Handle different plan structures
-    const days = plan.days || plan.workoutPlan?.days || plan;
-
-    if (Array.isArray(days)) {
-      return days.map((day, index) => (
-        <div key={index} className="border-b pb-4 last:border-0">
-          <h3 className="font-semibold mb-2 capitalize">{day.day || `Day ${index + 1}`}</h3>
-          {Array.isArray(day.exercises) ? (
-            <div className="space-y-3">
-              {day.exercises.map((exercise: any, exIndex: number) => (
-                <div key={exIndex} className="bg-gray-50 p-3 rounded-lg">
-                  {typeof exercise === 'string' ? (
-                    <p>{exercise}</p>
-                  ) : (
-                    <>
-                      <h4 className="font-medium">{exercise.name || 'Exercise'}</h4>
-                      <p className="text-gray-600">{exercise.description || JSON.stringify(exercise)}</p>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <pre className="bg-gray-50 p-3 rounded-lg overflow-x-auto">
-              {JSON.stringify(day, null, 2)}
-            </pre>
-          )}
-        </div>
-      ));
+    // Attempt to improve JSON handling -  this is a basic improvement and might need more robust parsing depending on JSON structure.
+    try {
+      const parsedPlan = typeof plan === 'string' ? JSON.parse(plan) : plan;
+      const days = parsedPlan.days || parsedPlan.workoutPlan?.days || parsedPlan;
+      if (Array.isArray(days)) {
+          return (
+              <ul>
+                  {days.map((day, index) => (
+                      <li key={index}>
+                          <h3>{day.day || `Day ${index + 1}`}</h3>
+                          <ul>
+                              {day.exercises.map((exercise, exIndex) => (
+                                  <li key={exIndex}>
+                                      {typeof exercise === 'string' ? exercise : (
+                                          <>
+                                              <h4>{exercise.name || 'Exercise'}</h4>
+                                              <p>{exercise.description || JSON.stringify(exercise, null, 2)}</p>
+                                          </>
+                                      )}
+                                  </li>
+                              ))}
+                          </ul>
+                      </li>
+                  ))}
+              </ul>
+          );
+      } else {
+          return <pre>{JSON.stringify(parsedPlan, null, 2)}</pre>;
+      }
+    } catch (error) {
+      console.error("Error parsing plan:", error);
+      return <pre>Error displaying plan</pre>;
     }
-
-    // Handle object structure
-    return Object.entries(days).map(([day, exercises]) => (
-      <div key={day} className="border-b pb-4 last:border-0">
-        <h3 className="font-semibold mb-2 capitalize">{day}</h3>
-        <div className="space-y-3">
-          {typeof exercises === 'object' && exercises !== null ? (
-            Array.isArray(exercises) ? (
-              exercises.map((exercise: any, idx) => (
-                <div key={idx} className="bg-gray-50 p-3 rounded-lg">
-                  <p>{typeof exercise === 'string' ? exercise : JSON.stringify(exercise)}</p>
-                </div>
-              ))
-            ) : (
-              Object.entries(exercises as any).map(([name, details], idx) => (
-                <div key={idx} className="bg-gray-50 p-3 rounded-lg">
-                  <h4 className="font-medium capitalize">{name}</h4>
-                  <p className="text-gray-600">
-                    {typeof details === 'string' ? details : JSON.stringify(details, null, 2)}
-                  </p>
-                </div>
-              ))
-            )
-          ) : (
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <p>{String(exercises)}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    ));
   }
 
   return (
