@@ -23,10 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Dumbbell, Save, Trash, Plus, Check } from "lucide-react";
+import { Loader2, Dumbbell, Save, Trash } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, ScrollArea, Badge } from "@/components/ui/dialog"; // Added imports
-
 
 const workoutFormSchema = z.object({
   equipment: z.string(),
@@ -37,7 +35,6 @@ const workoutFormSchema = z.object({
 export default function WorkoutPlanner() {
   const { toast } = useToast();
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
-  const [selectedPlan, setSelectedPlan] = useState<any>(null); // Added state for selected plan
 
   const form = useForm({
     resolver: zodResolver(workoutFormSchema),
@@ -104,86 +101,6 @@ export default function WorkoutPlanner() {
     },
   });
 
-  const setActiveMutation = useMutation({ // Added mutation to set active plan
-    mutationFn: async (planId: number) => {
-      await apiRequest("PUT", `/api/workout/plans/${planId}/active`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/workout/plans"] });
-      toast({
-        title: "Plan activated",
-        description: "Workout plan is now active"
-      })
-    }
-  })
-
-
-  function formatPlanDisplay(plan: any) {
-    if (!plan) return null;
-
-    // Handle different plan structures
-    const days = plan.days || plan.workoutPlan?.days || plan;
-
-    if (Array.isArray(days)) {
-      return days.map((day, index) => (
-        <div key={index} className="border-b pb-4 last:border-0">
-          <h3 className="font-semibold mb-2 capitalize">{day.day || `Day ${index + 1}`}</h3>
-          {Array.isArray(day.exercises) ? (
-            <div className="space-y-3">
-              {day.exercises.map((exercise: any, exIndex: number) => (
-                <div key={exIndex} className="bg-gray-50 p-3 rounded-lg">
-                  {typeof exercise === 'string' ? (
-                    <p>{exercise}</p>
-                  ) : (
-                    <>
-                      <h4 className="font-medium">{exercise.name || 'Exercise'}</h4>
-                      <p className="text-gray-600">
-                        {exercise.sets && exercise.reps
-                          ? `${exercise.sets} sets × ${exercise.reps} reps`
-                          : exercise.description || JSON.stringify(exercise)}
-                      </p>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <pre className="bg-gray-50 p-3 rounded-lg overflow-x-auto">
-              {JSON.stringify(day, null, 2)}
-            </pre>
-          )}
-        </div>
-      ));
-    }
-
-    // Handle object structure
-    return Object.entries(days).map(([day, exercises]) => (
-      <div key={day} className="border-b pb-4 last:border-0">
-        <h3 className="font-semibold mb-2 capitalize">{day}</h3>
-        <div className="space-y-3">
-          {Array.isArray(exercises) ?
-            exercises.map((exercise: any, idx: number) => (
-              <div key={idx} className="bg-gray-50 p-3 rounded-lg">
-                <h4 className="font-medium capitalize">
-                  {typeof exercise === 'string' ? exercise : exercise.name || `Exercise ${idx + 1}`}
-                </h4>
-                {typeof exercise !== 'string' && (
-                  <p className="text-gray-600">
-                    {exercise.details || JSON.stringify(exercise, null, 2)}
-                  </p>
-                )}
-              </div>
-            ))
-            :
-            <pre className="bg-gray-50 p-3 rounded-lg overflow-x-auto">
-              {JSON.stringify(exercises, null, 2)}
-            </pre>
-          }
-        </div>
-      </div>
-    ));
-  }
-
   function onSubmit(data: z.infer<typeof workoutFormSchema>) {
     generateMutation.mutate(data);
   }
@@ -200,7 +117,6 @@ export default function WorkoutPlanner() {
         >
           <h1 className="text-3xl font-bold mb-8">AI Workout Planner</h1>
 
-          {/* Form */}
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>Generate New Workout Plan</CardTitle>
@@ -224,22 +140,22 @@ export default function WorkoutPlanner() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="home">Home/Minimal</SelectItem>
-                            <SelectItem value="gym">Full Gym</SelectItem>
-                            <SelectItem value="bodyweight">Bodyweight Only</SelectItem>
-                            <SelectItem value="resistance_bands">Resistance Bands</SelectItem>
+                            <SelectItem value="none">No Equipment</SelectItem>
+                            <SelectItem value="minimal">Basic Equipment</SelectItem>
+                            <SelectItem value="full">Full Gym</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
                   <FormField
                     control={form.control}
                     name="goals"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Goals</FormLabel>
+                        <FormLabel>Fitness Goals</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           defaultValue={field.value}
@@ -251,16 +167,16 @@ export default function WorkoutPlanner() {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="strength">Strength</SelectItem>
-                            <SelectItem value="muscle_gain">Muscle Gain</SelectItem>
-                            <SelectItem value="weight_loss">Weight Loss</SelectItem>
                             <SelectItem value="endurance">Endurance</SelectItem>
-                            <SelectItem value="general_fitness">General Fitness</SelectItem>
+                            <SelectItem value="weight_loss">Weight Loss</SelectItem>
+                            <SelectItem value="muscle_gain">Muscle Gain</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
                   <FormField
                     control={form.control}
                     name="level"
@@ -273,7 +189,7 @@ export default function WorkoutPlanner() {
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select your fitness level" />
+                              <SelectValue placeholder="Select your level" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -302,7 +218,6 @@ export default function WorkoutPlanner() {
             </CardContent>
           </Card>
 
-          {/* Generated Plan */}
           {generatedPlan && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -323,70 +238,111 @@ export default function WorkoutPlanner() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {formatPlanDisplay(generatedPlan)}
+                    {generatedPlan && typeof generatedPlan === 'object' && (
+                      <>
+                        {/* Display title if available */}
+                        {generatedPlan.title && (
+                          <h2 className="text-xl font-bold">{generatedPlan.title}</h2>
+                        )}
+
+                        {/* Handle different possible data structures */}
+                        {generatedPlan.days && Array.isArray(generatedPlan.days) ? (
+                          // Format for array of day objects
+                          generatedPlan.days.map((dayObj: any, index: number) => (
+                            <div key={index} className="border-b pb-4">
+                              <h3 className="font-semibold mb-2 capitalize">{dayObj.day}</h3>
+                              <div className="grid gap-4">
+                                {Array.isArray(dayObj.exercises) ? (
+                                  dayObj.exercises.map((exercise: any, exIndex: number) => (
+                                    <div key={exIndex} className="bg-gray-50 p-4 rounded-lg">
+                                      {typeof exercise === 'string' ? (
+                                        <p>{exercise}</p>
+                                      ) : (
+                                        <>
+                                          <h4 className="font-medium mb-2">{exercise.name || "Exercise"}</h4>
+                                          {exercise.sets && <p className="text-sm">Sets: {exercise.sets}</p>}
+                                          {exercise.reps && <p className="text-sm">Reps: {exercise.reps}</p>}
+                                          {exercise.rest && <p className="text-sm">Rest: {exercise.rest}</p>}
+                                          {exercise.notes && <p className="text-sm mt-2 italic">{exercise.notes}</p>}
+                                          {!exercise.sets && !exercise.reps && (
+                                            <pre className="whitespace-pre-wrap text-sm">{JSON.stringify(exercise, null, 2)}</pre>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p>No detailed exercise information available</p>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          // Format for weekday object structure
+                          Object.entries(generatedPlan.weeklyWorkout?.days || generatedPlan).map(([day, exercises]: [string, any]) => (
+                            <div key={day} className="border-b pb-4">
+                              <h3 className="font-semibold mb-2 capitalize">{day}</h3>
+                              <div className="grid gap-4">
+                                {Array.isArray(exercises) ? (
+                                  exercises.map((exercise: any, index: number) => (
+                                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                                      <h4 className="font-medium mb-2">{exercise.name}</h4>
+                                      <p className="text-sm">Sets: {exercise.sets}, Reps: {exercise.reps}</p>
+                                      {exercise.rest && <p className="text-sm">Rest: {exercise.rest}</p>}
+                                      {exercise.notes && <p className="text-sm mt-2 italic">{exercise.notes}</p>}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="bg-gray-50 p-4 rounded-lg">
+                                    {typeof exercises === 'string' ? (
+                                      <p>{exercises}</p>
+                                    ) : (
+                                      <pre className="whitespace-pre-wrap text-sm">{JSON.stringify(exercises, null, 2)}</pre>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
           )}
 
-          {/* Saved Plans */}
           {isLoadingPlans ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-green-600" />
             </div>
-          ) : workoutPlans.length > 0 ? (
+          ) : workoutPlans?.length > 0 ? (
             <Card>
               <CardHeader>
                 <CardTitle>Saved Workout Plans</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {workoutPlans.map((plan) => (
+                  {workoutPlans.map((plan: any) => (
                     <div
                       key={plan.id}
                       className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{plan.name}</p>
-                          {plan.isActive && (
-                            <Badge variant="secondary" className="text-green-600">
-                              Active
-                            </Badge>
-                          )}
-                        </div>
+                      <div>
+                        <p className="font-medium">{plan.name}</p>
                         <p className="text-sm text-gray-500">
-                          {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : "No date"}
+                          {new Date(plan.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedPlan(plan)}
-                        >
-                          View Details
-                        </Button>
-                        {!plan.isActive && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setActiveMutation.mutate(plan.id)}
-                            disabled={setActiveMutation.isPending}
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => deletePlanMutation.mutate(plan.id)}
-                          disabled={deletePlanMutation.isPending}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deletePlanMutation.mutate(plan.id)}
+                        disabled={deletePlanMutation.isPending}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -396,34 +352,12 @@ export default function WorkoutPlanner() {
             <Card>
               <CardContent className="py-8">
                 <div className="text-center text-gray-500">
-                  <Plus className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <Dumbbell className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                   <p>No saved workout plans yet. Generate your first plan above!</p>
                 </div>
               </CardContent>
             </Card>
           )}
-
-          {/* Plan Details Dialog */}
-          <Dialog open={selectedPlan !== null} onOpenChange={() => setSelectedPlan(null)}>
-            <DialogContent className="max-w-3xl max-h-[80vh]">
-              <DialogHeader>
-                <DialogTitle>
-                  {selectedPlan?.name}
-                  {selectedPlan?.isActive && (
-                    <Badge variant="secondary" className="ml-2 text-green-600">
-                      Active Plan
-                    </Badge>
-                  )}
-                </DialogTitle>
-              </DialogHeader>
-              <ScrollArea className="h-full max-h-[calc(80vh-100px)] pr-4">
-                <div className="space-y-6">
-                  {selectedPlan && formatPlanDisplay(selectedPlan.plan)}
-                </div>
-              </ScrollArea>
-              <Button onClick={()=> setSelectedPlan(null)}>Close</Button>
-            </DialogContent>
-          </Dialog>
         </motion.div>
       </main>
     </div>

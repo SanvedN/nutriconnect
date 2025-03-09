@@ -328,7 +328,7 @@ export default function DietPlanner() {
                           )}
                         </div>
                         <p className="text-sm text-gray-500">
-                          {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : "No date"}
+                          {new Date(plan.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

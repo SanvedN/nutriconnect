@@ -201,34 +201,6 @@ export class MemStorage implements IStorage {
   async updateWorkoutPlan(id: string, data: Partial<WorkoutPlan>): Promise<WorkoutPlan> {
     const plan = this.workoutPlans.get(id);
     if (!plan) throw new Error('Workout plan not found');
-    
-    const updatedPlan = { ...plan, ...data };
-    this.workoutPlans.set(id, updatedPlan);
-    return updatedPlan;
-  }
-
-  async deleteWorkoutPlan(id: string): Promise<void> {
-    this.workoutPlans.delete(id);
-  }
-
-  async deactivateAllWorkoutPlans(userId: string): Promise<void> {
-    for (const [id, plan] of this.workoutPlans) {
-      if (plan.userId === userId && plan.isActive) {
-        plan.isActive = false;
-        this.workoutPlans.set(id, plan);
-      }
-    }
-  }
-
-  async activateWorkoutPlan(id: string): Promise<WorkoutPlan> {
-    const plan = this.workoutPlans.get(id);
-    if (!plan) throw new Error('Workout plan not found');
-
-    await this.deactivateAllWorkoutPlans(plan.userId); // Deactivate others before activating this one
-
-    const updatedPlan = { ...plan, isActive: true };
-    this.workoutPlans.set(id, updatedPlan);
-    return updatedPlan;
 
     const updatedPlan = { ...plan, ...data };
     this.workoutPlans.set(id, updatedPlan);

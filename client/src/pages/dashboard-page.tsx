@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { motion } from "framer-motion";
-import { format, parseISO } from "date-fns"; // Added parseISO for date handling
+import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -38,19 +38,15 @@ export default function DashboardPage() {
     );
   }
 
-  // Sort weight logs by date in ascending order
-  const sortedWeightLogs = weightLogs?.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  const weightData = sortedWeightLogs?.map((log) => ({
-    date: format(parseISO(log.date), "MMM d"), // Use parseISO for consistent date parsing
+  const weightData = weightLogs?.map((log) => ({
+    date: format(new Date(log.date), "MMM d"),
     weight: log.weight,
   }));
-
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav />
-
+      
       <main className="pl-64 p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -71,35 +67,19 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <StatsCard
               title="Current Weight"
-              value={`${sortedWeightLogs?.[sortedWeightLogs.length -1]?.weight || "N/A"} kg`} // Show latest weight
+              value={`${weightLogs?.[0]?.weight || "N/A"} kg`}
               description="Last recorded weight"
             />
-            <Card>
-              <CardContent className="p-6">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-500">Active Diet Plan</p>
-                  {dietPlans?.find(plan => plan.isActive) ? (
-                    <p className="font-bold">{dietPlans.find(plan => plan.isActive)?.name}</p>
-                  ) : (
-                    <p className="text-gray-400">No active plan</p>
-                  )}
-                  <p className="text-xs text-gray-500">Personalized meal plan</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-500">Active Workout Plan</p>
-                  {workoutPlans?.find(plan => plan.isActive) ? (
-                    <p className="font-bold">{workoutPlans.find(plan => plan.isActive)?.name}</p>
-                  ) : (
-                    <p className="text-gray-400">No active plan</p>
-                  )}
-                  <p className="text-xs text-gray-500">Custom exercise routine</p>
-                </div>
-              </CardContent>
-            </Card>
+            <StatsCard
+              title="Active Diet Plans"
+              value={dietPlans?.length || 0}
+              description="Personalized meal plans"
+            />
+            <StatsCard
+              title="Active Workout Plans"
+              value={workoutPlans?.length || 0}
+              description="Custom exercise routines"
+            />
           </div>
 
           {/* Weight Progress Chart */}
