@@ -54,14 +54,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Remove unwanted formatting (Markdown code blocks)
       recipeText = recipeText.replace(/^```json\n?|```$/g, "").trim();
+      recipeText = recipeText.replace(/^```\n?|```$/g, "").trim();
+      
+      // Add extra safety for malformed JSON
+      // Sometimes AI might include explanatory text before or after the JSON
+      const jsonMatch = recipeText.match(/(\{.*\})/s);
+      if (jsonMatch && jsonMatch[0]) {
+        recipeText = jsonMatch[0];
+      }
 
       // Parse JSON safely
       let recipe;
       try {
         recipe = JSON.parse(recipeText);
       } catch (jsonError) {
-        console.error("JSON Parsing Error:", jsonError);
-        throw new Error("Failed to parse AI response as JSON.");
+        console.error("JSON Parsing Error:", jsonError, "Text:", recipeText);
+        
+        // Fallback to a structured response if parsing fails
+        recipe = {
+          name: "Simple Recipe (AI response parsing failed)",
+          ingredients: ["Please try again with more specific ingredients"],
+          instructions: ["The AI response could not be properly formatted"],
+          nutrition: {
+            calories: "N/A",
+            protein: "N/A",
+            carbs: "N/A",
+            fat: "N/A"
+          }
+        };
       }
 
       res.json({ recipe });
@@ -106,15 +126,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/diet/generate", requireAuth, async (req, res) => {
     try {
       const { dietaryPreferences, goals } = req.body;
-      const prompt = `Generate a weekly diet plan with the following preferences: ${dietaryPreferences} and goals: ${goals}. Include macro details and meal timings. Format as JSON.`;
+      const prompt = `Generate a weekly diet plan with the following preferences: ${dietaryPreferences} and goals: ${goals}. Include macro details and meal timings. Format as valid JSON without any additional text.`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      const plan = JSON.parse(response.text());
+      
+      let planText = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (!planText) throw new Error("AI response is empty or malformed");
+      
+      // Remove any code block formatting
+      planText = planText.replace(/^```json\n?|```$/g, "").trim();
+      planText = planText.replace(/^```\n?|```$/g, "").trim();
+      
+      // Extract JSON if embedded in text
+      const jsonMatch = planText.match(/(\{.*\})/s);
+      if (jsonMatch && jsonMatch[0]) {
+        planText = jsonMatch[0];
+      }
+      
+      // Parse JSON safely
+      let plan;
+      try {
+        plan = JSON.parse(planText);
+      } catch (jsonError) {
+        console.error("JSON Parsing Error:", jsonError, "Text:", planText);
+        // Provide a fallback structured response
+        plan = {
+          title: "Weekly Diet Plan (AI response parsing failed)",
+          message: "Please try again with more specific dietary preferences",
+          days: [
+            { day: "Example", meals: ["Please try generating again"] }
+          ]
+        };
+      }
 
       res.json({ plan });
     } catch (error) {
-      res.status(500).json({ message: "Failed to generate diet plan" });
+      console.error("Diet plan generation error:", error);
+      res.status(500).json({ message: "Failed to generate diet plan", error: error.message });
     }
   });
 
@@ -136,15 +185,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/workout/generate", requireAuth, async (req, res) => {
     try {
       const { equipment, goals, level } = req.body;
-      const prompt = `Generate a weekly workout plan with available equipment: ${equipment}, goals: ${goals}, and fitness level: ${level}. Include exercises, sets, reps and rest periods. Format as JSON.`;
+      const prompt = `Generate a weekly workout plan with available equipment: ${equipment}, goals: ${goals}, and fitness level: ${level}. Include exercises, sets, reps and rest periods. Format as valid JSON without any additional text.`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      const plan = JSON.parse(response.text());
+      
+      let planText = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (!planText) throw new Error("AI response is empty or malformed");
+      
+      // Remove any code block formatting
+      planText = planText.replace(/^```json\n?|```$/g, "").trim();
+      planText = planText.replace(/^```\n?|```$/g, "").trim();
+      
+      // Extract JSON if embedded in text
+      const jsonMatch = planText.match(/(\{.*\})/s);
+      if (jsonMatch && jsonMatch[0]) {
+        planText = jsonMatch[0];
+      }
+      
+      // Parse JSON safely
+      let plan;
+      try {
+        plan = JSON.parse(planText);
+      } catch (jsonError) {
+        console.error("JSON Parsing Error:", jsonError, "Text:", planText);
+        // Provide a fallback structured response
+        plan = {
+          title: "Weekly Workout Plan (AI response parsing failed)",
+          message: "Please try again with more specific parameters",
+          days: [
+            { day: "Example", exercises: ["Please try generating again"] }
+          ]
+        };
+      }
 
       res.json({ plan });
     } catch (error) {
-      res.status(500).json({ message: "Failed to generate workout plan" });
+      console.error("Workout plan generation error:", error);
+      res.status(500).json({ message: "Failed to generate workout plan", error: error.message });
     }
   });
 
