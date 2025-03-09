@@ -2,11 +2,17 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertDietPlanSchema, insertWorkoutPlanSchema, insertWeightLogSchema, insertPostSchema, insertCommentSchema } from "@shared/schema";
+import {
+  insertDietPlanSchema,
+  insertWorkoutPlanSchema,
+  insertWeightLogSchema,
+  insertPostSchema,
+  insertCommentSchema,
+} from "@shared/schema";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -24,6 +30,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { meal, ingredients, goals } = req.body;
       const prompt = `Generate a recipe for ${meal} using these ingredients: ${ingredients}, aligned with goals: ${goals}. Include preparation steps, macros and calories. Format as JSON with the following structure:
+
       {
         "name": "Recipe Name",
         "ingredients": ["ingredient1", "ingredient2"],
@@ -38,12 +45,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      const recipe = JSON.parse(response.text());
+
+      console.log("Full AI Response:", JSON.stringify(response, null, 2)); // Debugging
+
+      let recipeText =
+        response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (!recipeText) throw new Error("AI response is empty or malformed");
+
+      // Remove unwanted formatting (Markdown code blocks)
+      recipeText = recipeText.replace(/^```json\n?|```$/g, "").trim();
+
+      // Parse JSON safely
+      let recipe;
+      try {
+        recipe = JSON.parse(recipeText);
+      } catch (jsonError) {
+        console.error("JSON Parsing Error:", jsonError);
+        throw new Error("Failed to parse AI response as JSON.");
+      }
 
       res.json({ recipe });
     } catch (error) {
       console.error("Recipe generation error:", error);
-      res.status(500).json({ message: "Failed to generate recipe" });
+      res
+        .status(500)
+        .json({ message: "Failed to generate recipe", error: error.message });
     }
   });
 
@@ -52,12 +78,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Convert string arrays back to proper format if they're stringified
       const recipe = {
         ...req.body,
-        ingredients: Array.isArray(req.body.ingredients) 
-          ? req.body.ingredients 
-          : req.body.ingredients.split('\n'),
+        ingredients: Array.isArray(req.body.ingredients)
+          ? req.body.ingredients
+          : req.body.ingredients.split("\n"),
         instructions: Array.isArray(req.body.instructions)
           ? req.body.instructions
-          : req.body.instructions.split('\n'),
+          : req.body.instructions.split("\n"),
       };
 
       const savedRecipe = await storage.createRecipe(req.user!.id, recipe);
@@ -184,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const comment = await storage.createComment(
         req.user!.id,
         parseInt(req.params.postId),
-        validated
+        validated,
       );
       res.json(comment);
     } catch (error) {
@@ -199,7 +225,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/posts/:postId/likes", requireAuth, async (req, res) => {
     try {
-      const like = await storage.createLike(req.user!.id, parseInt(req.params.postId));
+      const like = await storage.createLike(
+        req.user!.id,
+        parseInt(req.params.postId),
+      );
       res.json(like);
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });
