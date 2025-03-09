@@ -15,7 +15,6 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -43,10 +42,33 @@ const commentSchema = z.object({
   content: z.string().min(1, "Comment is required"),
 });
 
+type Post = {
+  id: string;
+  content: string;
+  userId: string;
+  username: string;
+  createdAt: string;
+};
+
+type Comment = {
+  id: string;
+  content: string;
+  userId: string;
+  username: string;
+  createdAt: string;
+};
+
+type Like = {
+  id: string;
+  userId: string;
+  postId: string;
+  createdAt: string;
+};
+
 export default function Community() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedPost, setSelectedPost] = useState<number | null>(null);
+  const [selectedPost, setSelectedPost] = useState<string | null>(null);
 
   const form = useForm({
     resolver: zodResolver(postSchema),
@@ -62,16 +84,16 @@ export default function Community() {
     },
   });
 
-  const { data: posts, isLoading: isLoadingPosts } = useQuery({
+  const { data: posts = [], isLoading: isLoadingPosts } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
   });
 
-  const { data: comments, isLoading: isLoadingComments } = useQuery({
+  const { data: comments = [], isLoading: isLoadingComments } = useQuery<Comment[]>({
     queryKey: ["/api/posts", selectedPost, "comments"],
     enabled: selectedPost !== null,
   });
 
-  const { data: likes, isLoading: isLoadingLikes } = useQuery({
+  const { data: likes = [], isLoading: isLoadingLikes } = useQuery<Like[]>({
     queryKey: ["/api/posts", selectedPost, "likes"],
     enabled: selectedPost !== null,
   });
@@ -89,10 +111,17 @@ export default function Community() {
         description: "Your post has been published successfully",
       });
     },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to create post",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const deletePostMutation = useMutation({
-    mutationFn: async (postId: number) => {
+    mutationFn: async (postId: string) => {
       await apiRequest("DELETE", `/api/posts/${postId}`);
     },
     onSuccess: () => {
@@ -105,7 +134,7 @@ export default function Community() {
   });
 
   const createCommentMutation = useMutation({
-    mutationFn: async ({ postId, data }: { postId: number; data: z.infer<typeof commentSchema> }) => {
+    mutationFn: async ({ postId, data }: { postId: string; data: z.infer<typeof commentSchema> }) => {
       const res = await apiRequest("POST", `/api/posts/${postId}/comments`, data);
       return res.json();
     },
@@ -116,7 +145,7 @@ export default function Community() {
   });
 
   const toggleLikeMutation = useMutation({
-    mutationFn: async ({ postId, isLiked }: { postId: number; isLiked: boolean }) => {
+    mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
       if (isLiked) {
         await apiRequest("DELETE", `/api/posts/${postId}/likes`);
       } else {
@@ -141,7 +170,7 @@ export default function Community() {
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav />
-      
+
       <main className="pl-64 p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -192,9 +221,9 @@ export default function Community() {
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-green-600" />
             </div>
-          ) : posts?.length > 0 ? (
+          ) : posts.length > 0 ? (
             <div className="space-y-4">
-              {posts.map((post: any) => (
+              {posts.map((post) => (
                 <Card key={post.id}>
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between mb-4">
@@ -223,24 +252,24 @@ export default function Community() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          const isLiked = likes?.some(
-                            (like: any) => like.userId === user?.id
+                          const isLiked = likes.some(
+                            (like) => like.userId === user?.id
                           );
                           toggleLikeMutation.mutate({
                             postId: post.id,
-                            isLiked: !!isLiked,
+                            isLiked,
                           });
                         }}
                         disabled={toggleLikeMutation.isPending}
                       >
                         <Heart
                           className={`h-4 w-4 mr-1 ${
-                            likes?.some((like: any) => like.userId === user?.id)
+                            likes.some((like) => like.userId === user?.id)
                               ? "fill-red-500 text-red-500"
                               : "text-gray-500"
                           }`}
                         />
-                        {likes?.length || 0}
+                        {likes.length}
                       </Button>
 
                       <Button
@@ -249,7 +278,7 @@ export default function Community() {
                         onClick={() => setSelectedPost(post.id)}
                       >
                         <MessageCircle className="h-4 w-4 mr-1 text-gray-500" />
-                        {comments?.length || 0}
+                        {comments.length}
                       </Button>
                     </div>
                   </CardContent>
@@ -278,8 +307,8 @@ export default function Community() {
                   <div className="flex justify-center py-4">
                     <Loader2 className="h-6 w-6 animate-spin text-green-600" />
                   </div>
-                ) : comments?.length > 0 ? (
-                  comments.map((comment: any) => (
+                ) : comments.length > 0 ? (
+                  comments.map((comment) => (
                     <div
                       key={comment.id}
                       className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg"
@@ -310,7 +339,7 @@ export default function Community() {
                       render={({ field }) => (
                         <FormItem className="flex-1">
                           <FormControl>
-                            <Input
+                            <Textarea
                               placeholder="Write a comment..."
                               {...field}
                             />
@@ -321,7 +350,6 @@ export default function Community() {
                     />
                     <Button
                       type="submit"
-                      size="icon"
                       disabled={createCommentMutation.isPending}
                     >
                       {createCommentMutation.isPending ? (
