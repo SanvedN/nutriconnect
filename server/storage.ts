@@ -163,36 +163,28 @@ export class MemStorage implements IStorage {
     return updatedPlan;
   }
 
-  async deleteDietPlan(planId: string) {
-    const plan = this.dietPlans.get(planId);
-    if (!plan) {
-      throw new Error("Diet plan not found");
-    }
-
-    // If this was the active plan, make sure it gets removed from dashboard too
-    if (plan.isActive) {
-      await this.deactivateAllDietPlans(plan.userId);
-    }
-
-    this.dietPlans.delete(planId);
+  async deleteDietPlan(id: string): Promise<void> {
+    this.dietPlans.delete(id);
   }
 
-  async deactivateAllDietPlans(userId: string) {
-    // Deactivate all diet plans for the user
-    for (const plan of this.dietPlans.values()) {
+  async deactivateAllDietPlans(userId: string): Promise<void> {
+    for (const [id, plan] of this.dietPlans) {
       if (plan.userId === userId && plan.isActive) {
         plan.isActive = false;
+        this.dietPlans.set(id, plan);
       }
     }
   }
 
-  async activateDietPlan(planId: string): Promise<DietPlan> {
-    const plan = this.dietPlans.get(planId);
-    if (!plan) {
-      throw new Error("Diet plan not found");
-    }
-    plan.isActive = true;
-    return plan;
+  async activateDietPlan(id: string): Promise<DietPlan> {
+    const plan = this.dietPlans.get(id);
+    if (!plan) throw new Error('Diet plan not found');
+
+    await this.deactivateAllDietPlans(plan.userId); // Deactivate others before activating this one
+
+    const updatedPlan = { ...plan, isActive: true };
+    this.dietPlans.set(id, updatedPlan);
+    return updatedPlan;
   }
 
   async createWorkoutPlan(userId: string, plan: Omit<WorkoutPlan, "id" | "userId">): Promise<WorkoutPlan> {
@@ -215,36 +207,28 @@ export class MemStorage implements IStorage {
     return updatedPlan;
   }
 
-  async deleteWorkoutPlan(planId: string) {
-    const plan = this.workoutPlans.get(planId);
-    if (!plan) {
-      throw new Error("Workout plan not found");
-    }
-
-    // If this was the active plan, make sure it gets removed from dashboard too
-    if (plan.isActive) {
-      await this.deactivateAllWorkoutPlans(plan.userId);
-    }
-
-    this.workoutPlans.delete(planId);
+  async deleteWorkoutPlan(id: string): Promise<void> {
+    this.workoutPlans.delete(id);
   }
-
-  async activateWorkoutPlan(planId: string): Promise<WorkoutPlan> {
-    const plan = this.workoutPlans.get(planId);
-    if (!plan) {
-      throw new Error("Workout plan not found");
-    }
-    plan.isActive = true;
-    return plan;
-  }
-
-  async deactivateAllWorkoutPlans(userId: string) {
-    // Deactivate all workout plans for the user
-    for (const plan of this.workoutPlans.values()) {
+  
+  async deactivateAllWorkoutPlans(userId: string): Promise<void> {
+    for (const [id, plan] of this.workoutPlans) {
       if (plan.userId === userId && plan.isActive) {
         plan.isActive = false;
+        this.workoutPlans.set(id, plan);
       }
     }
+  }
+  
+  async activateWorkoutPlan(id: string): Promise<WorkoutPlan> {
+    const plan = this.workoutPlans.get(id);
+    if (!plan) throw new Error('Workout plan not found');
+
+    await this.deactivateAllWorkoutPlans(plan.userId);
+
+    const activatedPlan = { ...plan, isActive: true };
+    this.workoutPlans.set(id, activatedPlan);
+    return activatedPlan;
   }
 
   async createWeightLog(userId: string, log: Omit<WeightLog, "id" | "userId">): Promise<WeightLog> {
