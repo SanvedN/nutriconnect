@@ -61,36 +61,79 @@ export function setupAuth(app: Express) {
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
-      const user = await storage.getUserByUsername(username);
-      if (!user || !(await comparePasswords(password, user.password))) {
-        return done(null, false);
-      } else {
-        return done(null, user);
+      try {
+        const user = await storage.getUserByUsername(username);
+        if (!user || !(await comparePasswords(password, user.password))) {
+          return done(null, false);
+        } else {
+          return done(null, user);
+        }
+      } catch (error) {
+        return done(error);
       }
     }),
   );
 
   passport.serializeUser((user, done) => done(null, user.id));
-  passport.deserializeUser(async (id: number, done) => {
-    const user = await storage.getUser(id);
-    done(null, user);
+  passport.deserializeUser(async (id: string, done) => {
+    try {
+      const user = await storage.getUser(id);
+      done(null, user);
+    } catch (error) {
+      done(error);
+    }
   });
 
   app.post("/api/register", async (req, res, next) => {
-    const existingUser = await storage.getUserByUsername(req.body.username);
-    if (existingUser) {
-      return res.status(400).send("Username already exists");
+    try {
+      console.log('Registration request received:', { 
+        ...req.body,
+        password: '[REDACTED]' 
+      });
+
+      if (!req.body.username || !req.body.email || !req.body.password) {
+        console.error('Missing required fields in registration request');
+        return res.status(400).json({ 
+          message: "Missing required fields", 
+          required: ['username', 'email', 'password'] 
+        });
+      }
+
+      const existingUser = await storage.getUserByUsername(req.body.username);
+      if (existingUser) {
+        console.log('Registration failed: Username already exists');
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      const existingEmail = await storage.getUserByEmail(req.body.email);
+      if (existingEmail) {
+        console.log('Registration failed: Email already registered');
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      console.log('Hashing password...');
+      const hashedPassword = await hashPassword(req.body.password);
+      console.log('Password hashed successfully');
+
+      console.log('Creating user in database...');
+      const user = await storage.createUser({
+        ...req.body,
+        password: hashedPassword,
+      });
+      console.log('User created successfully:', { id: user.id, username: user.username });
+
+      req.login(user, (err) => {
+        if (err) {
+          console.error('Error during login after registration:', err);
+          return next(err);
+        }
+        console.log('User logged in successfully after registration');
+        res.status(201).json(user);
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      next(error);
     }
-
-    const user = await storage.createUser({
-      ...req.body,
-      password: await hashPassword(req.body.password),
-    });
-
-    req.login(user, (err) => {
-      if (err) return next(err);
-      res.status(201).json(user);
-    });
   });
 
   app.post("/api/login", passport.authenticate("local"), (req, res) => {

@@ -2,8 +2,9 @@ import { pgTable, text, serial, integer, boolean, timestamp, json } from "drizzl
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Update schema to use string IDs for MongoDB compatibility
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+  id: text("id").primaryKey(), // Changed from serial to text for MongoDB _id
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
@@ -19,9 +20,10 @@ export const users = pgTable("users", {
   resetTokenExpiry: timestamp("reset_token_expiry"),
 });
 
+// Update all tables to use string IDs
 export const dietPlans = pgTable("diet_plans", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
   name: text("name").notNull(),
   plan: json("plan").notNull(),
   isAiGenerated: boolean("is_ai_generated").notNull(),
@@ -29,8 +31,8 @@ export const dietPlans = pgTable("diet_plans", {
 });
 
 export const workoutPlans = pgTable("workout_plans", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
   name: text("name").notNull(),
   plan: json("plan").notNull(),
   isAiGenerated: boolean("is_ai_generated").notNull(),
@@ -38,31 +40,31 @@ export const workoutPlans = pgTable("workout_plans", {
 });
 
 export const weightLogs = pgTable("weight_logs", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
   weight: integer("weight").notNull(),
   date: timestamp("date").notNull().defaultNow(),
 });
 
 export const posts = pgTable("posts", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const comments = pgTable("comments", {
-  id: serial("id").primaryKey(),
-  postId: integer("post_id").notNull(),
-  userId: integer("user_id").notNull(),
+  id: text("id").primaryKey(),
+  postId: text("post_id").notNull(),
+  userId: text("user_id").notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const likes = pgTable("likes", {
-  id: serial("id").primaryKey(),
-  postId: integer("post_id").notNull(),
-  userId: integer("user_id").notNull(),
+  id: text("id").primaryKey(),
+  postId: text("post_id").notNull(),
+  userId: text("user_id").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
