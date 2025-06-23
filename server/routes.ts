@@ -12,9 +12,10 @@ import {
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import { GEMINI_API_KEY } from "./config";
 
 dotenv.config();
-const genAI = new GoogleGenerativeAI("AIzaSyBDMYAX4pPgl0XO9wUwIEatNI3EdgHmYeU");
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 export async function registerRoutes(app: Express): Promise<Server> {
