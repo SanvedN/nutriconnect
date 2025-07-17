@@ -1,0 +1,178 @@
+# NutriConnect Application Flow
+
+## Main Application Flow
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Landing Page  │───▶│   Auth System    │───▶│   Dashboard     │
+│   (/)           │    │   (/auth)        │    │   (/dashboard)  │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                                │                        │
+                                ▼                        ▼
+                       ┌─────────────────┐    ┌─────────────────┐
+                       │ User Registration│    │  Main Features  │
+                       │ & Login          │    │                 │
+                       └─────────────────┘    └─────────────────┘
+                                                        │
+                        ┌───────────────────────────────┼───────────────────────────────┐
+                        │                               │                               │
+                        ▼                               ▼                               ▼
+              ┌─────────────────┐            ┌─────────────────┐            ┌─────────────────┐
+              │  Recipe Manager │            │  Diet Planner   │            │ Workout Planner │
+              │   (/recipes)    │            │    (/diet)      │            │   (/workout)    │
+              └─────────────────┘            └─────────────────┘            └─────────────────┘
+                        │                               │                               │
+                        ▼                               ▼                               ▼
+              ┌─────────────────┐            ┌─────────────────┐            ┌─────────────────┐
+              │ AI Recipe Gen   │            │ AI Diet Plan    │            │ AI Workout Plan │
+              │ + Manual Create │            │ Generation      │            │ Generation      │
+              └─────────────────┘            └─────────────────┘            └─────────────────┘
+                        │                               │                               │
+                        └───────────────────────────────┼───────────────────────────────┘
+                                                        │
+                                                        ▼
+                                              ┌─────────────────┐
+                                              │ Weight Tracking │
+                                              │   (/weight)     │
+                                              └─────────────────┘
+                                                        │
+                                                        ▼
+                                              ┌─────────────────┐
+                                              │   Community     │
+                                              │  (/community)   │
+                                              └─────────────────┘
+```
+
+## Technical Data Flow
+
+```
+Frontend (React)                 Backend (Express)               Database (PostgreSQL)
+┌─────────────────┐             ┌─────────────────┐             ┌─────────────────┐
+│                 │             │                 │             │                 │
+│ User Interface  │────────────▶│ API Endpoints   │────────────▶│ Data Storage    │
+│                 │             │                 │             │                 │
+│ - Forms         │             │ /api/recipes/*  │             │ - users         │
+│ - Displays      │             │ /api/diet/*     │             │ - diet_plans    │
+│ - State Mgmt    │             │ /api/workout/*  │             │ - workout_plans │
+│                 │             │ /api/weight/*   │             │ - recipes       │
+└─────────────────┘             │ /api/auth/*     │             │ - weight_logs   │
+         │                      └─────────────────┘             │ - posts         │
+         │                               │                      └─────────────────┘
+         │                               ▼                               │
+         │                      ┌─────────────────┐                     │
+         │                      │ Google Gemini   │                     │
+         │                      │ AI Integration  │                     │
+         │                      │                 │                     │
+         │                      │ - Recipe Gen    │                     │
+         │                      │ - Diet Plans    │                     │
+         │                      │ - Workout Plans │                     │
+         │                      └─────────────────┘                     │
+         │                                                              │
+         └──────────────────────────────────────────────────────────────┘
+                              Real-time Updates
+```
+
+## AI Generation Flow
+
+```
+User Input
+    │
+    ▼
+┌─────────────────┐
+│ Form Submission │
+│ - Preferences   │
+│ - Goals         │
+│ - Equipment     │
+└─────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│ API Request     │
+│ POST /api/*/    │
+│ generate        │
+└─────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│ Google Gemini   │
+│ AI Processing   │
+│ - Prompt Build  │
+│ - AI Response   │
+└─────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│ Response Parse  │
+│ - JSON Extract  │
+│ - Error Handle  │
+│ - Format Clean  │
+└─────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│ Frontend Update │
+│ - Display Plan  │
+│ - Save Option   │
+│ - User Actions  │
+└─────────────────┘
+```
+
+## Database Operations Flow
+
+```
+API Request
+    │
+    ▼
+┌─────────────────┐
+│ Authentication  │
+│ Middleware      │
+│ (requireAuth)   │
+└─────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│ Route Handler   │
+│ (server/routes) │
+└─────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│ Storage Layer   │
+│ (server/storage)│
+└─────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│ Database Query  │
+│ (PostgreSQL)    │
+└─────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│ Response Format │
+│ & Return        │
+└─────────────────┘
+```
+
+## File Structure Flow
+
+```
+Root Directory
+├── client/                 ← Frontend React App
+│   ├── src/
+│   │   ├── pages/         ← Main UI Components
+│   │   ├── components/    ← Reusable Components
+│   │   └── lib/          ← Utilities & API Client
+│   └── index.html
+├── server/                ← Backend Express Server
+│   ├── routes.ts         ← API Endpoints
+│   ├── storage.ts        ← Database Operations
+│   ├── auth.ts           ← Authentication
+│   └── vite.ts           ← Development Server
+├── shared/               ← Common Code
+│   └── schema.ts         ← Database Schema & Types
+└── Configuration Files
+    ├── vite.config.ts    ← Build Configuration
+    ├── drizzle.config.ts ← Database Configuration
+    └── package.json      ← Dependencies & Scripts
+```
